@@ -149,9 +149,9 @@ def booking_com_rates(
     hotel_id: int,
     check_in: date,
     check_out: date,
+    room_filter: set[str],
     adults: int = 2,
     rooms: int = 1,
-    rooms_filter: set[str] = set(),
 ) -> list[RoomRate]:
     """Return room rates from booking.com.
 
@@ -167,7 +167,7 @@ def booking_com_rates(
 
     logger = get_run_logger()
 
-    rooms_filter = {room.lower().strip() for room in rooms_filter}
+    room_filter = {room.lower().strip() for room in room_filter}
 
     fmt_check_in = check_in.strftime("%Y-%m-%d")
     fmt_check_out = check_out.strftime("%Y-%m-%d")
@@ -193,7 +193,7 @@ def booking_com_rates(
         host="booking-com15.p.rapidapi.com",
     )
 
-    return _best_rates(_process_booking_com_rates(hotel_name, data, rooms_filter))
+    return _best_rates(_process_booking_com_rates(hotel_name, data, room_filter))
 
 
 def hotels_com_rates(
@@ -201,7 +201,7 @@ def hotels_com_rates(
     hotel_id: str,
     check_in: date,
     check_out: date,
-    rooms_filter: set[str] = set(),
+    room_filter: set[str],
 ) -> list[RoomRate]:
     """Return room rates from hotels.com.
 
@@ -215,7 +215,7 @@ def hotels_com_rates(
 
     logger = get_run_logger()
 
-    rooms_filter = {room.lower().strip() for room in rooms_filter}
+    room_filter = {room.lower().strip() for room in room_filter}
 
     fmt_check_in = check_in.strftime("%Y-%m-%d")
     fmt_check_out = check_out.strftime("%Y-%m-%d")
@@ -237,4 +237,4 @@ def hotels_com_rates(
         host="hotels-com6.p.rapidapi.com",
     )
 
-    return _best_rates(_process_hotels_com_rates(hotel_name, data, rooms_filter))
+    return _best_rates(_process_hotels_com_rates(hotel_name, data, room_filter))

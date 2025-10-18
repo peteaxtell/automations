@@ -1,8 +1,7 @@
-from dataclasses import dataclass
 from datetime import date
 
 from prefect import flow
-
+from pydantic import BaseModel, Field
 from shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
 from shared.mail import send_mail
 
@@ -29,15 +28,14 @@ CSS = """
 """
 
 
-@dataclass
-class Hotel:
+class Hotel(BaseModel):
     name: str
     booking_id: int
     hotels_id: str
+    room_filter: set[str] = Field(default_factory=set)
 
 
-@dataclass
-class Stay:
+class Stay(BaseModel):
     name: str
     check_in: date
     check_out: date
@@ -45,12 +43,19 @@ class Stay:
 
 
 # Dubai
-al_qasr = Hotel("Jumeirah Al Qasr", 73056, "6853839_1498622")
-al_naseem = Hotel("Jumeirah Al Naseem", 1988600, "6853839_16850366")
-mini_salam = Hotel("Mini Al Salam", 73057, "6853839_973713")
+al_qasr = Hotel(
+    name="Al Qasr",
+    booking_id=73056,
+    hotels_id="6853839_1498622",
+    room_filter={"ocean", "lagoon", "arabian"},
+)
+al_naseem = Hotel(name="Al Naseem", booking_id=1988600, hotels_id="6853839_16850366")
+mini_salam = Hotel(name="Mini Al Salam", booking_id=73057, hotels_id="6853839_973713")
 
 # Tignes
-diamond_rock = Hotel("Diamond Rock", 6460454, "184273_51609525")
+diamond_rock = Hotel(
+    name="Diamond Rock", booking_id=6460454, hotels_id="184273_51609525"
+)
 
 stays = (
     Stay(
@@ -118,12 +123,22 @@ def run_report(recipients: tuple[str, ...]):
     for stay in stays:
         booking_rates = [
             booking_com_rates(
-                hotel.name, hotel.booking_id, stay.check_in, stay.check_out
+                hotel_name=hotel.name,
+                hotel_id=hotel.booking_id,
+                check_in=stay.check_in,
+                check_out=stay.check_out,
+                room_filter=hotel.room_filter,
             )
             for hotel in stay.hotels
         ]
         hotels_rates = [
-            hotels_com_rates(hotel.name, hotel.hotels_id, stay.check_in, stay.check_out)
+            hotels_com_rates(
+                hotel_name=hotel.name,
+                hotel_id=hotel.hotels_id,
+                check_in=stay.check_in,
+                check_out=stay.check_out,
+                room_filter=hotel.room_filter,
+            )
             for hotel in stay.hotels
         ]
 

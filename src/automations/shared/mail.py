@@ -6,25 +6,25 @@ from prefect import task
 from prefect.blocks.system import Secret
 from prefect.variables import Variable
 
-SMTP_SERVER = Variable.get("mail-server", _sync=True)
-SMTP_PORT = 587
-EMAIL_USERNAME = Variable.get("mail-username", _sync=True)
-EMAIL_PASSWORD = Secret.load("mail-password", _sync=True).get()
-
 
 @task
 def send_mail(to: tuple[str, ...], subject: str, body: str):
+    smtp_server = Variable.get("mail-server")
+    smtp_port = 587
+    username = Variable.get("mail-username")
+    password = Secret.load("mail-password").get()
+
     msg = MIMEMultipart("alternative")
-    msg["From"] = EMAIL_USERNAME
+    msg["From"] = username
     msg["To"] = ";".join(to)
     msg["Subject"] = subject
     html_part = MIMEText(body, "html")
     msg.attach(html_part)
 
-    server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+    server = smtplib.SMTP(host=smtp_server, port=smtp_port, timeout=30)
     server.starttls()
-    server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+    server.login(username, password)
 
     text = msg.as_string()
-    server.sendmail(EMAIL_USERNAME, to, text)
+    server.sendmail(username, to, text)
     server.quit()
