@@ -6,9 +6,9 @@ from prefect import task
 from prefect.blocks.system import Secret
 from prefect.variables import Variable
 
-SMTP_SERVER = Variable.load("mail-server", _sync=True)
+SMTP_SERVER = Variable.get("mail-server", _sync=True)
 SMTP_PORT = 587
-EMAIL_USERNAME = Variable.load("mail-username", _sync=True)
+EMAIL_USERNAME = Variable.get("mail-username", _sync=True)
 EMAIL_PASSWORD = Secret.load("mail-password", _sync=True).get()
 
 
