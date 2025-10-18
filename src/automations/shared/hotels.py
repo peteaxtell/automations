@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-from .rapid_api import rapid_api_request
+from prefect import get_run_logger
+from shared.rapid_api import rapid_api_request
 
 
 @dataclass
@@ -47,9 +48,12 @@ def _process_booking_com_rates(
     :param room_filter: Optional set of room name patterns to filter by.
     :return: A list of room rates.
     """
+
+    logger = get_run_logger()
+
     rates = []
 
-    for room in data["data"]["blocks"]:
+    for room in data["data"]["block"]:
         # remove policy details from room name
         room_type = (
             room["name"]
@@ -85,6 +89,8 @@ def _process_booking_com_rates(
             )
         )
 
+    logger.info(f"{len(rates)} filtered booking.com rates for {hotel_name}")
+
     return rates
 
 
@@ -98,9 +104,14 @@ def _process_hotels_com_rates(
     :param rooms_filter: Optional set of room name patterns to filter by.
     :return: A list of room rates.
     """
+
+    logger = get_run_logger()
+
     rates = []
 
-    for listing in data["data"]["categorizedListings"]:
+    listings = data["data"]["categorizedListings"] or []
+
+    for listing in listings:
         if len(listing["primarySelections"]) != 1:
             raise ValueError("More than one room in listing.")
 
@@ -129,6 +140,7 @@ def _process_hotels_com_rates(
                     )
                 )
 
+    logger.info(f"{len(rates)} filtered hotels.com rates for {hotel_name}")
     return rates
 
 
@@ -152,18 +164,28 @@ def booking_com_rates(
     :param rooms_filter: Optional set of room name patterns to filter by.
     :return: A list of room rates.
     """
+
+    logger = get_run_logger()
+
     rooms_filter = {room.lower().strip() for room in rooms_filter}
+
+    fmt_check_in = check_in.strftime("%Y-%m-%d")
+    fmt_check_out = check_out.strftime("%Y-%m-%d")
 
     query = {
         "hotel_id": str(hotel_id),
-        "arrival_date": check_in.strftime("%Y-%m-%d"),
-        "departure_date": check_out.strftime("%Y-%m-%d"),
+        "arrival_date": fmt_check_in,
+        "departure_date": fmt_check_out,
         "room_qty": rooms,
         "adults": adults,
         "children_age": "0",
         "languagecode": "en-us",
         "currency_code": "GBP",
     }
+
+    logger.info(
+        f"Getting booking.com rates for {hotel_name} from {fmt_check_in} to {fmt_check_out}"
+    )
 
     data = rapid_api_request(
         "https://booking-com15.p.rapidapi.com/api/v1/hotels/getRoomList",
@@ -190,19 +212,29 @@ def hotels_com_rates(
     :param rooms_filter: Optional set of room name patterns to filter by.
     :return: A list of room rates.
     """
+
+    logger = get_run_logger()
+
     rooms_filter = {room.lower().strip() for room in rooms_filter}
+
+    fmt_check_in = check_in.strftime("%Y-%m-%d")
+    fmt_check_out = check_out.strftime("%Y-%m-%d")
 
     query = {
         "propertyId": hotel_id,
-        "checkinDate": check_in.strftime("%Y-%m-%d"),
-        "checkoutDate": check_out.strftime("%Y-%m-%d"),
+        "checkinDate": fmt_check_in,
+        "checkoutDate": fmt_check_out,
         "regionId": "300066865",  # UK / GBP
     }
 
+    logger.info(
+        f"Getting hotels.com rates for {hotel_name} from {fmt_check_in} to {fmt_check_out}"
+    )
+
     data = rapid_api_request(
-        "https://hotels-com8.p.rapidapi.com/hotels/details-offers",
+        "https://hotels-com6.p.rapidapi.com/hotels/details-offers",
         query=query,
-        host="hotels-com8.p.rapidapi.com",
+        host="hotels-com6.p.rapidapi.com",
     )
 
     return _best_rates(_process_hotels_com_rates(hotel_name, data, rooms_filter))

@@ -3,8 +3,8 @@ from datetime import date
 
 from prefect import flow
 
-from .shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
-from .shared.mail import send_mail
+from shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
+from shared.mail import send_mail
 
 CSS = """
 <style>
@@ -141,7 +141,5 @@ def run_report(recipients: tuple[str, ...]):
 
 
 if __name__ == "__main__":
-    recipients = ("axtellpete@gmail.com",)
-    run_report(recipients)
     recipients = ("axtellpete@gmail.com",)
     run_report(recipients)
