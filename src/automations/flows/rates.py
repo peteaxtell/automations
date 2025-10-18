@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import date
 
+from prefect import flow
+
 from automations.shared.hotels import RoomRate, booking_com_rates, hotel_com_rates
 from automations.shared.mail import send_mail
 
@@ -104,6 +106,7 @@ def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
     return html
 
 
+@flow
 def run_report(recipients: tuple[str, ...]):
     html = f"""
 <html>
@@ -138,5 +141,7 @@ def run_report(recipients: tuple[str, ...]):
 
 
 if __name__ == "__main__":
+    recipients = ("axtellpete@gmail.com",)
+    run_report(recipients)
     recipients = ("axtellpete@gmail.com",)
     run_report(recipients)
