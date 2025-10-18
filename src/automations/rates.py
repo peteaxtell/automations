@@ -3,7 +3,7 @@ from datetime import date
 
 from prefect import flow
 
-from .shared.hotels import RoomRate, booking_com_rates, hotel_com_rates
+from .shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
 from .shared.mail import send_mail
 
 CSS = """
@@ -123,7 +123,7 @@ def run_report(recipients: tuple[str, ...]):
             for hotel in stay.hotels
         ]
         hotels_rates = [
-            hotel_com_rates(hotel.name, hotel.hotels_id, stay.check_in, stay.check_out)
+            hotels_com_rates(hotel.name, hotel.hotels_id, stay.check_in, stay.check_out)
             for hotel in stay.hotels
         ]
 
