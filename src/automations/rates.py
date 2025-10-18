@@ -1,6 +1,7 @@
 from datetime import date
 
-from prefect import flow
+from prefect import flow, get_run_logger
+from prefect.variables import Variable
 from pydantic import BaseModel, Field
 from shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
 from shared.mail import send_mail
@@ -40,37 +41,6 @@ class Stay(BaseModel):
     check_in: date
     check_out: date
     hotels: tuple[Hotel, ...]
-
-
-# Dubai
-al_qasr = Hotel(
-    name="Al Qasr",
-    booking_id=73056,
-    hotels_id="6853839_1498622",
-    room_filter={"ocean", "lagoon", "arabian"},
-)
-al_naseem = Hotel(name="Al Naseem", booking_id=1988600, hotels_id="6853839_16850366")
-mini_salam = Hotel(name="Mini Al Salam", booking_id=73057, hotels_id="6853839_973713")
-
-# Tignes
-diamond_rock = Hotel(
-    name="Diamond Rock", booking_id=6460454, hotels_id="184273_51609525"
-)
-
-stays = (
-    Stay(
-        name="Dubai February 2026",
-        check_in=date(2026, 2, 22),
-        check_out=date(2026, 2, 28),
-        hotels=(al_qasr, al_naseem, mini_salam),
-    ),
-    Stay(
-        name="Tignes March 2026",
-        check_in=date(2026, 3, 29),
-        check_out=date(2026, 4, 3),
-        hotels=(diamond_rock,),
-    ),
-)
 
 
 def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
@@ -120,6 +90,28 @@ def run_report(recipients: tuple[str, ...]):
 </head>
 """
 
+    logger = get_run_logger()
+
+    hotels = tuple(Hotel(**h) for h in Variable.get("hotels"))
+
+    logger.info(f"Loaded {len(hotels)} hotels: {[h.name for h in hotels]}")
+
+    stays = []
+
+    for stay in Variable.get("stays"):
+        stay_hotels = [h for h in hotels if h.name in stay["hotels"]]
+        if stay_hotels:
+            stays.append(
+                Stay(
+                    name=stay["name"],
+                    check_in=stay["check_in"],
+                    check_out=stay["check_out"],
+                    hotels=tuple(stay_hotels),
+                )
+            )
+
+    logger.info(f"Loaded {len(stays)} stays: {[s.name for s in stays]}")
+
     for stay in stays:
         booking_rates = [
             booking_com_rates(
@@ -157,4 +149,5 @@ def run_report(recipients: tuple[str, ...]):
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
+    run_report(recipients)
     run_report(recipients)
