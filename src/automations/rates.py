@@ -3,8 +3,8 @@ from datetime import date
 
 from prefect import flow
 
-from automations.shared.hotels import RoomRate, booking_com_rates, hotel_com_rates
-from automations.shared.mail import send_mail
+from .shared.hotels import RoomRate, booking_com_rates, hotel_com_rates
+from .shared.mail import send_mail
 
 CSS = """
 <style>

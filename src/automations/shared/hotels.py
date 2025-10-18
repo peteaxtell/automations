@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-from automations.shared.rapid_api import rapid_api_request
+from .rapid_api import rapid_api_request
 
 
 @dataclass
@@ -16,12 +16,12 @@ class RoomRate:
 
 def _best_rates(rates: list[RoomRate]) -> list[RoomRate]:
     """Return the best rate for each room and type and policy.
-    
+
     :param rates: A list of room rates.
     :return: A list of the best room rates per type and policy.
     """
     room_rates = {}
-    
+
     for rate in rates:
         # take lowest rate per room/policy
         if (rate.room_type, rate.policy) in room_rates:
@@ -31,9 +31,9 @@ def _best_rates(rates: list[RoomRate]) -> list[RoomRate]:
             room_rates[(rate.room_type, rate.policy)] = rate
 
     rates = list(room_rates.values())
-    
+
     rates.sort(key=lambda x: x.total)
-    
+
     return rates
 
 

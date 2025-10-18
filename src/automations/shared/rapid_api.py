@@ -2,7 +2,7 @@ import httpx
 from prefect import task
 from prefect.blocks.system import Secret
 
-from automations.shared.exceptions import RapidAPIError
+from .exceptions import RapidAPIError
 
 RAPID_API_KEY = Secret.load("rapid-api-key", _sync=True).get()
 
