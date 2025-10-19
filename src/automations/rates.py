@@ -70,7 +70,7 @@ def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
 <tr>
     <td>{rate.hotel_name}</td>
     <td>{rate.room_type}</td>
-    <td>£{rate.total}</td>
+    <td>£{rate.total:,.0f}</td>
     <td>{rate.policy}</td>
     <td>{rate.provider}</td>
 </tr>
@@ -149,5 +149,4 @@ def run_report(recipients: tuple[str, ...]):
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
-    run_report(recipients)
     run_report(recipients)
