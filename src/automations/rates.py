@@ -31,9 +31,10 @@ CSS = """
 
 class Hotel(BaseModel):
     name: str
-    booking_id: int
-    hotels_id: str
+    booking_id: int | None = None
+    hotels_id: str | None = None
     room_filter: set[str] = Field(default_factory=set)
+    room_patterns: list[str] = Field(default_factory=list)
 
 
 class Stay(BaseModel):
@@ -120,8 +121,10 @@ def run_report(recipients: tuple[str, ...]):
                 check_in=stay.check_in,
                 check_out=stay.check_out,
                 room_filter=hotel.room_filter,
+                room_patterns=hotel.room_patterns,
             )
             for hotel in stay.hotels
+            if hotel.booking_id
         ]
         hotels_rates = [
             hotels_com_rates(
@@ -130,8 +133,10 @@ def run_report(recipients: tuple[str, ...]):
                 check_in=stay.check_in,
                 check_out=stay.check_out,
                 room_filter=hotel.room_filter,
+                room_patterns=hotel.room_patterns,
             )
             for hotel in stay.hotels
+            if hotel.hotels_id
         ]
 
         booking_rates = [rate for sublist in booking_rates for rate in sublist]

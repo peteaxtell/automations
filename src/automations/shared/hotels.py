@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal
@@ -39,13 +40,14 @@ def _best_rates(rates: list[RoomRate]) -> list[RoomRate]:
 
 
 def _process_booking_com_rates(
-    hotel_name: str, data: dict, room_filter: set[str]
+    hotel_name: str, data: dict, room_filter: set[str], room_patterns: list[str]
 ) -> list[RoomRate]:
     """Clean and filter booking.com room rates from RapidAPI response.
 
     :param hotel_name: The name of the hotel.
     :param data: The JSON response from RapidAPI.
     :param room_filter: Optional set of room name patterns to filter by.
+    :param room_patterns: Optional list of regexs to replace in room names.
     :return: A list of room rates.
     """
 
@@ -54,12 +56,10 @@ def _process_booking_com_rates(
     rates = []
 
     for room in data["data"]["block"]:
-        # remove policy details from room name
-        room_type = (
-            room["name"]
-            .replace("- Non-refundable", "")
-            .replace("- Free Cancellation", "")
-        )
+        room_type = room["name"]
+
+        for pattern in room_patterns:
+            room_type = re.sub(pattern, "", room_type)
 
         # ignore rooms not in filter, if provided
         if room_filter and all(
@@ -95,13 +95,14 @@ def _process_booking_com_rates(
 
 
 def _process_hotels_com_rates(
-    hotel_name: str, data: dict, rooms_filter: set[str]
+    hotel_name: str, data: dict, rooms_filter: set[str], room_patterns: list[str]
 ) -> list[RoomRate]:
     """Clean and filter hotels.com room rates from RapidAPI response.
 
     :param hotel_name: The name of the hotel.
     :param data: The JSON response from RapidAPI.
     :param rooms_filter: Optional set of room name patterns to filter by.
+    :param room_patterns: Optional list of regexs to replace in room names.
     :return: A list of room rates.
     """
 
@@ -123,6 +124,9 @@ def _process_hotels_com_rates(
             room_type.lower().strip().find(room) == -1 for room in rooms_filter
         ):
             continue
+
+        for pattern in room_patterns:
+            room_type = re.sub(pattern, "", room_type)
 
         for rate in room["ratePlans"]:
             for detail in rate["priceDetails"]:
@@ -150,6 +154,7 @@ def booking_com_rates(
     check_in: date,
     check_out: date,
     room_filter: set[str],
+    room_patterns: list[str],
     adults: int = 2,
     rooms: int = 1,
 ) -> list[RoomRate]:
@@ -162,6 +167,7 @@ def booking_com_rates(
     :param adults: Optional number of adults.
     :param rooms: Optional number of rooms.
     :param rooms_filter: Optional set of room name patterns to filter by.
+    :param room_patterns: Optional list of regexs to replace in room names.
     :return: A list of room rates.
     """
 
@@ -193,7 +199,9 @@ def booking_com_rates(
         host="booking-com15.p.rapidapi.com",
     )
 
-    return _best_rates(_process_booking_com_rates(hotel_name, data, room_filter))
+    return _best_rates(
+        _process_booking_com_rates(hotel_name, data, room_filter, room_patterns)
+    )
 
 
 def hotels_com_rates(
@@ -202,6 +210,7 @@ def hotels_com_rates(
     check_in: date,
     check_out: date,
     room_filter: set[str],
+    room_patterns: list[str],
 ) -> list[RoomRate]:
     """Return room rates from hotels.com.
 
@@ -210,6 +219,7 @@ def hotels_com_rates(
     :param check_in: The check-in date.
     :param check_out: The check-out date.
     :param rooms_filter: Optional set of room name patterns to filter by.
+    :param room_patterns: Optional list of regexs to replace in room names.
     :return: A list of room rates.
     """
 
@@ -237,4 +247,6 @@ def hotels_com_rates(
         host="hotels-com6.p.rapidapi.com",
     )
 
-    return _best_rates(_process_hotels_com_rates(hotel_name, data, room_filter))
+    return _best_rates(
+        _process_hotels_com_rates(hotel_name, data, room_filter, room_patterns)
+    )
