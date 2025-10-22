@@ -7,25 +7,28 @@ from shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
 from shared.mail import send_mail
 
 CSS = """
-<style>
-    .custom-table {
-        border-collapse: collapse;
-        font-family: 'Segoe UI', Arial, sans-serif;
-        font-size: 14px;
-        margin: 20px 0;
-    }
+    <style>
+        .custom-table {
+            border-collapse: collapse;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 12px;
+            margin: 20px 0;
+            border: 1px solid #666;
+        }
 
-    .custom-table td, .custom-table th {
-        padding: 8px 8px;
-        text-align: left;
-        border-bottom: 1px solid gray;
-    }
+        .custom-table td,
+        .custom-table th {
+            padding: 2px 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
 
-    .custom-table th {
-        font-weight: 600;
-        border-bottom: 2px solid gray;
-    }
-</style>
+        .custom-table th {
+            font-weight: 600;
+            background-color: #e8e8e8;
+            border-bottom: 1px solid #666;
+        }
+    </style>
 """
 
 
