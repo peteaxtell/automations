@@ -16,7 +16,7 @@ def send_mail(to: tuple[str, ...], subject: str, body: str):
 
     msg = MIMEMultipart("alternative")
     msg["From"] = username
-    msg["To"] = ";".join(to)
+    msg["To"] = ",".join(to)
     msg["Subject"] = subject
     html_part = MIMEText(body, "html")
     msg.attach(html_part)
