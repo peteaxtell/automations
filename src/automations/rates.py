@@ -36,6 +36,7 @@ class Hotel(BaseModel):
     name: str
     booking_id: int | None = None
     hotels_id: str | None = None
+    enabled: bool = True
     room_filter: set[str] = Field(default_factory=set)
     room_patterns: list[str] = Field(default_factory=list)
 
@@ -54,49 +55,26 @@ def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
     :param rates: A list of RoomRate objects for the stay.
     :return: An HTML string representing the table."""
 
-    html = f"""
-<p><b>{stay.name}</b></p>
-<table class='custom-table'>
-"""
-
-    html += """
-<tr>
-    <th>Hotel</th>
-    <th>Room</th>
-    <th>Rate</th>
-    <th>Policy</th>
-    <th>Provider</th>
-</tr>
-"""
-
-    for rate in rates:
-        html += f"""
-<tr>
-    <td>{rate.hotel_name}</td>
-    <td>{rate.room_type}</td>
-    <td>£{rate.total:,.0f}</td>
-    <td>{rate.policy}</td>
-    <td>{rate.provider}</td>
-</tr>
-"""
-
-    html += "</table>"
-
-    return html
+    # Deprecated: now using Jinja template for email HTML
+    return ""
 
 
 @flow
 def run_report(recipients: tuple[str, ...]):
-    html = f"""
-<html>
-<head>
-{CSS}
-</head>
-"""
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+    env = Environment(
+        loader=FileSystemLoader("src/automations/templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = env.get_template("email.html.j2")
+    stays_data = []
 
     logger = get_run_logger()
 
     hotels = tuple(Hotel(**h) for h in Variable.get("hotels"))
+
+    hotels = tuple(h for h in hotels if h.enabled)
 
     logger.info(f"Loaded {len(hotels)} hotels: {[h.name for h in hotels]}")
 
@@ -148,9 +126,9 @@ def run_report(recipients: tuple[str, ...]):
         all_rates = [*booking_rates, *hotels_rates]
         all_rates.sort(key=lambda x: (x.hotel_name, x.total))
 
-        html += stay_html(stay, all_rates)
+        stays_data.append((stay, all_rates))
 
-    html += "</html>"
+    html = template.render(stays=stays_data, css=CSS)
 
     send_mail(to=recipients, subject="Daily Hotels Report", body=html)
 

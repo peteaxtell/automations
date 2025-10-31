@@ -1,0 +1,37 @@
+{% macro stay_table(stay, rates) %}
+<p><b>{{ stay.name }}</b></p>
+{% if rates|length == 0 %}
+    <p>No rates found.</p>
+{% else %}
+    <table class="custom-table">
+        <tr>
+            <th>Hotel</th>
+            <th>Room</th>
+            <th>Rate</th>
+            <th>Policy</th>
+            <th>Provider</th>
+        </tr>
+        {% for rate in rates %}
+        <tr>
+            <td>{{ rate.hotel_name }}</td>
+            <td>{{ rate.room_type }}</td>
+            <td>£{{ rate.total | round(0, 'floor') }}</td>
+            <td>{{ rate.policy }}</td>
+            <td>{{ rate.provider }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+{% endif %}
+{% endmacro %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    {{ css | safe }}
+</head>
+<body>
+    {% for stay, rates in stays %}
+        {{ stay_table(stay, rates) }}
+    {% endfor %}
+</body>
+</html>
