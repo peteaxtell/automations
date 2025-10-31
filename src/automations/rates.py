@@ -134,5 +134,5 @@ def run_report(recipients: tuple[str, ...]):
 
 
 if __name__ == "__main__":
-    recipients = ("axtellpete@gmail.com",)
+    recipients = ("axtellpete@gmail.com", "s.axtell@winton.com")
     run_report(recipients)
