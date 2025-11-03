@@ -20,7 +20,7 @@ def rapid_api_request(url: str, query: dict[str, str], host: str) -> dict[str, a
     headers = {"x-rapidapi-key": RAPID_API_KEY, "x-rapidapi-host": host}
 
     try:
-        response = httpx.get(url, headers=headers, params=query, timeout=30)
+        response = httpx.get(url, headers=headers, params=query, timeout=60)
         response.raise_for_status()
         return response.json()
     except httpx.HTTPError as e:
