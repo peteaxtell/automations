@@ -1,7 +1,6 @@
 import httpx
 from prefect import task
 from prefect.blocks.system import Secret
-
 from shared.exceptions import RapidAPIError
 
 RAPID_API_KEY = Secret.load("rapid-api-key", _sync=True).get()
@@ -11,10 +10,13 @@ RAPID_API_KEY = Secret.load("rapid-api-key", _sync=True).get()
 def rapid_api_request(url: str, query: dict[str, str], host: str) -> dict[str, any]:
     """Make a request to the RapidAPI service.
 
-    :param url: The API endpoint URL.
-    :param query: The query parameters.
-    :param host: The RapidAPI host header.
-    :return: The JSON response as a dictionary.
+    Args:
+        url (str): The API endpoint URL.
+        query (dict[str, str]): The query parameters.
+        host (str): The RapidAPI host header.
+
+    Returns:
+        dict[str, any]: The JSON response as a dictionary.
     """
 
     headers = {"x-rapidapi-key": RAPID_API_KEY, "x-rapidapi-host": host}

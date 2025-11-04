@@ -33,6 +33,17 @@ CSS = """
 
 
 class Hotel(BaseModel):
+    """Represents a hotel with optional booking and hotels.com IDs.
+
+    Attributes:
+        name (str): Name of the hotel.
+        booking_id (int | None): Booking.com hotel ID.
+        hotels_id (str | None): Hotels.com hotel ID.
+        enabled (bool): Whether the hotel is enabled.
+        room_filter (set[str]): Set of room name patterns to filter by.
+        room_patterns (list[str]): List of regex patterns to apply to room names.
+    """
+
     name: str
     booking_id: int | None = None
     hotels_id: str | None = None
@@ -42,6 +53,15 @@ class Hotel(BaseModel):
 
 
 class Stay(BaseModel):
+    """Represents a stay with check-in/check-out dates and associated hotels.
+
+    Attributes:
+        name (str): Name of the stay.
+        check_in (date): Check-in date.
+        check_out (date): Check-out date.
+        hotels (tuple[Hotel, ...]): Tuple of Hotel objects for the stay.
+    """
+
     name: str
     check_in: date
     check_out: date
@@ -51,9 +71,13 @@ class Stay(BaseModel):
 def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
     """Generate an HTML table for the given stay and its room rates.
 
-    :param stay: The Stay object containing stay details.
-    :param rates: A list of RoomRate objects for the stay.
-    :return: An HTML string representing the table."""
+    Args:
+        stay (Stay): The Stay object containing stay details.
+        rates (list[RoomRate]): List of RoomRate objects for the stay.
+
+    Returns:
+        str: An HTML string representing the table.
+    """
 
     # Deprecated: now using Jinja template for email HTML
     return ""
@@ -61,6 +85,11 @@ def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
 
 @flow
 def run_report(recipients: tuple[str, ...]):
+    """Run the daily hotels report and send it by email.
+
+    Args:
+        recipients (tuple[str, ...]): Tuple of recipient email addresses.
+    """
     from jinja2 import Environment, FileSystemLoader, select_autoescape
 
     env = Environment(

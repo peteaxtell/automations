@@ -9,6 +9,16 @@ from shared.rapid_api import rapid_api_request
 
 @dataclass
 class RoomRate:
+    """Represents a room rate from a hotel provider.
+
+    Attributes:
+        provider (Literal["booking.com", "hotels.com"]): The provider name.
+        hotel_name (str): The name of the hotel.
+        room_type (str): The type of the room.
+        total (float): The total price for the room.
+        policy (str): The cancellation policy or other policy info.
+    """
+
     provider: Literal["booking.com", "hotels.com"]
     hotel_name: str
     room_type: str
@@ -19,8 +29,11 @@ class RoomRate:
 def _best_rates(rates: list[RoomRate]) -> list[RoomRate]:
     """Return the best rate for each room and type and policy.
 
-    :param rates: A list of room rates.
-    :return: A list of the best room rates per type and policy.
+    Args:
+        rates (list[RoomRate]): A list of room rates.
+
+    Returns:
+        list[RoomRate]: The best room rates per type and policy.
     """
     room_rates = {}
 
@@ -44,11 +57,14 @@ def _process_booking_com_rates(
 ) -> list[RoomRate]:
     """Clean and filter booking.com room rates from RapidAPI response.
 
-    :param hotel_name: The name of the hotel.
-    :param data: The JSON response from RapidAPI.
-    :param room_filter: Optional set of room name patterns to filter by.
-    :param room_patterns: Optional list of regexs to replace in room names.
-    :return: A list of room rates.
+    Args:
+        hotel_name (str): The name of the hotel.
+        data (dict): The JSON response from RapidAPI.
+        room_filter (set[str]): Optional set of room name patterns to filter by.
+        room_patterns (list[str]): Optional list of regexs to replace in room names.
+
+    Returns:
+        list[RoomRate]: A list of room rates.
     """
 
     logger = get_run_logger()
@@ -99,11 +115,14 @@ def _process_hotels_com_rates(
 ) -> list[RoomRate]:
     """Clean and filter hotels.com room rates from RapidAPI response.
 
-    :param hotel_name: The name of the hotel.
-    :param data: The JSON response from RapidAPI.
-    :param rooms_filter: Optional set of room name patterns to filter by.
-    :param room_patterns: Optional list of regexs to replace in room names.
-    :return: A list of room rates.
+    Args:
+        hotel_name (str): The name of the hotel.
+        data (dict): The JSON response from RapidAPI.
+        rooms_filter (set[str]): Optional set of room name patterns to filter by.
+        room_patterns (list[str]): Optional list of regexs to replace in room names.
+
+    Returns:
+        list[RoomRate]: A list of room rates.
     """
 
     logger = get_run_logger()
@@ -160,15 +179,18 @@ def booking_com_rates(
 ) -> list[RoomRate]:
     """Return room rates from booking.com.
 
-    :param hotel_name: The name of the hotel.
-    :param hotel_id: The booking.com hotel ID.
-    :param check_in: The check-in date.
-    :param check_out: The check-out date.
-    :param adults: Optional number of adults.
-    :param rooms: Optional number of rooms.
-    :param rooms_filter: Optional set of room name patterns to filter by.
-    :param room_patterns: Optional list of regexs to replace in room names.
-    :return: A list of room rates.
+    Args:
+        hotel_name (str): The name of the hotel.
+        hotel_id (int): The booking.com hotel ID.
+        check_in (date): The check-in date.
+        check_out (date): The check-out date.
+        room_filter (set[str]): Optional set of room name patterns to filter by.
+        room_patterns (list[str]): Optional list of regexs to replace in room names.
+        adults (int, optional): Number of adults. Defaults to 2.
+        rooms (int, optional): Number of rooms. Defaults to 1.
+
+    Returns:
+        list[RoomRate]: A list of room rates.
     """
 
     logger = get_run_logger()
@@ -214,13 +236,16 @@ def hotels_com_rates(
 ) -> list[RoomRate]:
     """Return room rates from hotels.com.
 
-    :param hotel_name: The name of the hotel.
-    :param hotel_id: The hotels.com region ID and hotel ID concatenated with "_".
-    :param check_in: The check-in date.
-    :param check_out: The check-out date.
-    :param rooms_filter: Optional set of room name patterns to filter by.
-    :param room_patterns: Optional list of regexs to replace in room names.
-    :return: A list of room rates.
+    Args:
+        hotel_name (str): The name of the hotel.
+        hotel_id (str): The hotels.com region ID and hotel ID concatenated with "_".
+        check_in (date): The check-in date.
+        check_out (date): The check-out date.
+        room_filter (set[str]): Optional set of room name patterns to filter by.
+        room_patterns (list[str]): Optional list of regexs to replace in room names.
+
+    Returns:
+        list[RoomRate]: A list of room rates.
     """
 
     logger = get_run_logger()
