@@ -6,7 +6,7 @@ from shared.exceptions import RapidAPIError
 RAPID_API_KEY = Secret.load("rapid-api-key", _sync=True).get()
 
 
-@task
+@task(retries=3, retry_delay_seconds=15)
 def rapid_api_request(url: str, query: dict[str, str], host: str) -> dict[str, any]:
     """Make a request to the RapidAPI service.
 
