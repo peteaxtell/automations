@@ -1,35 +1,11 @@
 from datetime import date
 
-from prefect import flow, get_run_logger
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from prefect import flow, get_run_logger, task
 from prefect.variables import Variable
 from pydantic import BaseModel, Field
-from shared.hotels import RoomRate, booking_com_rates, hotels_com_rates
+from shared.hotels import booking_com_rates, hotels_com_rates
 from shared.mail import send_mail
-
-CSS = """
-    <style>
-        .custom-table {
-            border-collapse: collapse;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 12px;
-            margin: 20px 0;
-            border: 1px solid #666;
-        }
-
-        .custom-table td,
-        .custom-table th {
-            padding: 2px 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .custom-table th {
-            font-weight: 600;
-            background-color: #e8e8e8;
-            border-bottom: 1px solid #666;
-        }
-    </style>
-"""
 
 
 class Hotel(BaseModel):
@@ -68,44 +44,33 @@ class Stay(BaseModel):
     hotels: tuple[Hotel, ...]
 
 
-def stay_html(stay: Stay, rates: list[RoomRate]) -> str:
-    """Generate an HTML table for the given stay and its room rates.
-
-    Args:
-        stay (Stay): The Stay object containing stay details.
-        rates (list[RoomRate]): List of RoomRate objects for the stay.
+@task
+def get_hotels() -> tuple[Hotel, ...]:
+    """Load and return the list of enabled hotels from Prefect variables.
 
     Returns:
-        str: An HTML string representing the table.
+        tuple[Hotel, ...]: A tuple of enabled Hotel objects.
     """
-
-    # Deprecated: now using Jinja template for email HTML
-    return ""
-
-
-@flow
-def run_report(recipients: tuple[str, ...]):
-    """Run the daily hotels report and send it by email.
-
-    Args:
-        recipients (tuple[str, ...]): Tuple of recipient email addresses.
-    """
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-    env = Environment(
-        loader=FileSystemLoader("src/automations/templates"),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    template = env.get_template("email.html.j2")
-    stays_data = []
 
     logger = get_run_logger()
 
     hotels = tuple(Hotel(**h) for h in Variable.get("hotels"))
-
-    hotels = tuple(h for h in hotels if h.enabled)
+    enabled_hotels = tuple(h for h in hotels if h.enabled)
 
     logger.info(f"Loaded {len(hotels)} hotels: {[h.name for h in hotels]}")
+
+    return enabled_hotels
+
+
+@task
+def get_stays(hotels: tuple[Hotel, ...]) -> list[Stay]:
+    """Load and return the list of stays from Prefect variables.
+
+    Returns:
+        list[Stay]: A list of Stay objects.
+    """
+
+    logger = get_run_logger()
 
     stays = []
 
@@ -122,6 +87,21 @@ def run_report(recipients: tuple[str, ...]):
             )
 
     logger.info(f"Loaded {len(stays)} stays: {[s.name for s in stays]}")
+
+    return stays
+
+
+@task
+def get_stay_rates(stays: list[Stay]) -> dict[str, list]:
+    """Get rates for each stay.
+
+    Args:
+        stays (list[Stay]): List of Stay objects.
+
+    Returns:
+        dict[str, list]: Dictionary mapping stay names to their rates.
+    """
+    stay_rates = {}
 
     for stay in stays:
         booking_rates = [
@@ -155,13 +135,36 @@ def run_report(recipients: tuple[str, ...]):
         all_rates = [*booking_rates, *hotels_rates]
         all_rates.sort(key=lambda x: (x.hotel_name, x.total))
 
-        stays_data.append((stay, all_rates))
+        stay_rates[stay.name] = all_rates
 
-    html = template.render(stays=stays_data, css=CSS)
+    return stay_rates
+
+
+@flow
+def run_report(recipients: tuple[str, ...]):
+    """Run the daily hotels report and send it by email.
+
+    Args:
+        recipients (tuple[str, ...]): Tuple of recipient email addresses.
+    """
+
+    hotels = get_hotels()
+
+    stays = get_stays(hotels)
+
+    stay_rates = get_stay_rates(stays)
+
+    env = Environment(
+        loader=FileSystemLoader("src/automations/templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = env.get_template("email.html.j2")
+
+    html = template.render(stays=stay_rates)
 
     send_mail(to=recipients, subject="Daily Hotels Report", body=html)
 
 
 if __name__ == "__main__":
-    recipients = ("axtellpete@gmail.com", "s.axtell@winton.com")
+    recipients = ("axtellpete@gmail.com",)
     run_report(recipients)

@@ -1,5 +1,5 @@
-{% macro stay_table(stay, rates) %}
-<p><b>{{ stay.name }}</b></p>
+{% macro stay_table(stay_name, rates) %}
+<p><b>{{ stay_name }}</b></p>
 {% if rates|length == 0 %}
     <p>No rates found.</p>
 {% else %}
@@ -15,7 +15,7 @@
         <tr>
             <td>{{ rate.hotel_name }}</td>
             <td>{{ rate.room_type }}</td>
-            <td>£{{ rate.total | round(0, 'floor') }}</td>
+            <td>£{{ "${:,.0f}".format(rate.total) }}</td>
             <td>{{ rate.policy }}</td>
             <td>{{ rate.provider }}</td>
         </tr>
@@ -27,11 +27,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-    {{ css | safe }}
+    <style>
+        .custom-table {
+            border-collapse: collapse;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 12px;
+            margin: 20px 0;
+            border: 1px solid #666;
+        }
+
+        .custom-table td,
+        .custom-table th {
+            padding: 2px 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .custom-table th {
+            font-weight: 600;
+            background-color: #e8e8e8;
+            border-bottom: 1px solid #666;
+        }
+    </style>
 </head>
 <body>
-    {% for stay, rates in stays %}
-        {{ stay_table(stay, rates) }}
+    {% for stay_name, rates in stays.items() %}
+        {{ stay_table(stay_name, rates) }}
     {% endfor %}
 </body>
 </html>
