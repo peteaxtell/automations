@@ -69,9 +69,13 @@ def _process_booking_com_rates(
 
     logger = get_run_logger()
 
+    if not (rooms := data.get("data", {}).get("block", [])):
+        logger.warning(f"No rooms in booking.com response for {hotel_name}: {data}")
+        return []
+
     rates = []
 
-    for room in data["data"]["block"]:
+    for room in rooms:
         room_type = room["name"]
 
         for pattern in room_patterns:
@@ -105,7 +109,7 @@ def _process_booking_com_rates(
             )
         )
 
-    logger.info(f"{len(rates)} filtered booking.com rates for {hotel_name}")
+    logger.info(f"{len(rates)} booking.com rates for {hotel_name} after filtering.")
 
     return rates
 
@@ -127,9 +131,11 @@ def _process_hotels_com_rates(
 
     logger = get_run_logger()
 
-    rates = []
+    if not (listings := data.get("data", {}).get("categorizedListings", [])):
+        logger.warning(f"No rooms in hotels.com response for {hotel_name}: {data}")
+        return []
 
-    listings = data["data"]["categorizedListings"] or []
+    rates = []
 
     for listing in listings:
         if len(listing["primarySelections"]) != 1:
@@ -163,7 +169,7 @@ def _process_hotels_com_rates(
                     )
                 )
 
-    logger.info(f"{len(rates)} filtered hotels.com rates for {hotel_name}")
+    logger.info(f"{len(rates)} hotels.com rates for {hotel_name} after filtering.")
     return rates
 
 
@@ -215,14 +221,22 @@ def booking_com_rates(
         f"Getting booking.com rates for {hotel_name} from {fmt_check_in} to {fmt_check_out}"
     )
 
-    data = rapid_api_request(
+    state = rapid_api_request(
         "https://booking-com15.p.rapidapi.com/api/v1/hotels/getRoomList",
         query=query,
         host="booking-com15.p.rapidapi.com",
+        return_state=True,
     )
+    if state.is_failed():
+        logger.warning(
+            f"Skipping fetching booking.com rates for {hotel_name} after all retries failed."
+        )
+        return []
 
     return _best_rates(
-        _process_booking_com_rates(hotel_name, data, room_filter, room_patterns)
+        _process_booking_com_rates(
+            hotel_name, state.result(), room_filter, room_patterns
+        )
     )
 
 
@@ -266,12 +280,21 @@ def hotels_com_rates(
         f"Getting hotels.com rates for {hotel_name} from {fmt_check_in} to {fmt_check_out}"
     )
 
-    data = rapid_api_request(
+    state = rapid_api_request(
         "https://hotels-com6.p.rapidapi.com/hotels/details-offers",
         query=query,
         host="hotels-com6.p.rapidapi.com",
+        return_state=True,
     )
 
+    if state.is_failed():
+        logger.warning(
+            f"Skipping fetching hotels.com rates for {hotel_name} after all retries failed."
+        )
+        return []
+
     return _best_rates(
-        _process_hotels_com_rates(hotel_name, data, room_filter, room_patterns)
+        _process_hotels_com_rates(
+            hotel_name, state.result(), room_filter, room_patterns
+        )
     )
