@@ -15,7 +15,7 @@
         <tr>
             <td>{{ rate.hotel_name }}</td>
             <td>{{ rate.room_type }}</td>
-            <td>£{{ "${:,.0f}".format(rate.total) }}</td>
+            <td>{{ "£{:,.0f}".format(rate.total) }}</td>
             <td>{{ rate.policy }}</td>
             <td>{{ rate.provider }}</td>
         </tr>
