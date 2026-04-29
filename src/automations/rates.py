@@ -5,8 +5,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from prefect import flow, get_run_logger, task
 from prefect.variables import Variable
 
-from automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
-from automations.shared.mail import send_mail
+from src.automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
+from src.automations.shared.mail import send_mail
 
 
 @dataclass

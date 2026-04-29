@@ -2,8 +2,8 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from automations.config import RapidApiConfig
-from automations.shared.exceptions import RapidAPIError
+from src.automations.config import RapidApiConfig
+from src.automations.shared.exceptions import RapidAPIError
 
 
 class RapidApiClient:

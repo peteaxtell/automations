@@ -7,9 +7,9 @@ from typing import Dict, List
 from prefect import get_run_logger
 from pydantic import BaseModel
 
-from automations.config import HotelsComConfig
-from automations.shared.clients.rapid_api import RapidApiClient
-from automations.shared.exceptions import HotelsComProcessingError
+from src.automations.config import HotelsComConfig
+from src.automations.shared.clients.rapid_api import RapidApiClient
+from src.automations.shared.exceptions import HotelsComProcessingError
 
 
 @dataclass
