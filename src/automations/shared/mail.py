@@ -12,9 +12,9 @@ def send_mail(to: tuple[str, ...], subject: str, body: str):
     """Send an email with the given subject and HTML body to recipients.
 
     Args:
-        to (tuple[str, ...]): Tuple of recipient email addresses.
-        subject (str): The subject of the email.
-        body (str): The HTML body of the email.
+        to: Tuple of recipient email addresses.
+        subject: The subject of the email.
+        body: The HTML body of the email.
     """
     smtp_server = Variable.get("mail-server")
     smtp_port = 587

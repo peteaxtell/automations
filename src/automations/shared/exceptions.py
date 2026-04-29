@@ -1,7 +1,10 @@
 class RapidAPIError(Exception):
-    """Exception raised for errors in the RapidAPI request.
+    """Base exception for RapidAPI errors."""
 
-    This exception is used to indicate that a request to RapidAPI failed.
-    """
 
-    pass
+class HotelsComError(Exception):
+    """Base exception for Hotels.com API errors."""
+
+
+class HotelsComProcessingError(HotelsComError):
+    """Raised when there is an error processing Hotels.com API data."""

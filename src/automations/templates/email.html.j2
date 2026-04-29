@@ -1,23 +1,24 @@
-{% macro stay_table(stay_name, rates) %}
-<p><b>{{ stay_name }}</b></p>
-{% if rates|length == 0 %}
+<i>Rates do not include member discounts</i>
+{% macro rates_table(trip) %}
+<p><b>{{ trip.name }}</b><br/>
+{{ trip.check_in_formatted }} to {{ trip.check_out_formatted }}
+</p>
+{% if trip.rates|length == 0 %}
     <p>No rates found.</p>
 {% else %}
     <table class="custom-table">
         <tr>
             <th>Hotel</th>
             <th>Room</th>
-            <th>Rate</th>
-            <th>Policy</th>
-            <th>Provider</th>
+            <th>Total</th>
+            <th>Per Night</th>
         </tr>
-        {% for rate in rates %}
+        {% for rate in trip.rates %}
         <tr>
             <td>{{ rate.hotel_name }}</td>
-            <td>{{ rate.room_type }}</td>
-            <td>{{ "£{:,.0f}".format(rate.total) }}</td>
-            <td>{{ rate.policy }}</td>
-            <td>{{ rate.provider }}</td>
+            <td>{{ rate.room_name }}</td>
+            <td>{{ rate.total_formatted }}</td>
+            <td>{{ rate.per_night_formatted }}</td>
         </tr>
         {% endfor %}
     </table>
@@ -51,8 +52,8 @@
     </style>
 </head>
 <body>
-    {% for stay_name, rates in stays.items() %}
-        {{ stay_table(stay_name, rates) }}
+    {% for trip in trips %}
+        {{ rates_table(trip) }}
     {% endfor %}
 </body>
 </html>

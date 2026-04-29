@@ -1,143 +1,145 @@
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, datetime
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from prefect import flow, get_run_logger, task
 from prefect.variables import Variable
-from pydantic import BaseModel, Field
-from shared.hotels import booking_com_rates, hotels_com_rates
-from shared.mail import send_mail
+
+from automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
+from automations.shared.mail import send_mail
 
 
-class Hotel(BaseModel):
-    """Represents a hotel with optional booking and hotels.com IDs.
-
-    Attributes:
-        name (str): Name of the hotel.
-        booking_id (int | None): Booking.com hotel ID.
-        hotels_id (str | None): Hotels.com hotel ID.
-        enabled (bool): Whether the hotel is enabled.
-        room_filter (set[str]): Set of room name patterns to filter by.
-        room_patterns (list[str]): List of regex patterns to apply to room names.
-    """
-
+@dataclass
+class Hotel:
     name: str
-    booking_id: int | None = None
-    hotels_id: str | None = None
-    enabled: bool = True
-    room_filter: set[str] = Field(default_factory=set)
-    room_patterns: list[str] = Field(default_factory=list)
+    short_name: str
+    city: str
 
 
-class Stay(BaseModel):
-    """Represents a stay with check-in/check-out dates and associated hotels.
+class Trip:
+    def __init__(
+        self, name: str, check_in: str, check_out: str, hotel_names: list[str]
+    ) -> None:
+        """Initialize the Trip model.
 
-    Attributes:
-        name (str): Name of the stay.
-        check_in (date): Check-in date.
-        check_out (date): Check-out date.
-        hotels (tuple[Hotel, ...]): Tuple of Hotel objects for the stay.
-    """
+        Args:
+            name: The name of the trip.
+            check_in: The check-in date as a string in 'YYYY-MM-DD' format.
+            check_out: The check-out date as a string in 'YYYY-MM-DD' format.
+            hotel_names: A list of hotel short names associated with the trip.
+        """
+        self.name = name
+        self.check_in = self._parse_date(check_in)
+        self.check_out = self._parse_date(check_out)
+        self.rates: list[HotelsComRate] = []
+        self._resolve_hotels(hotel_names)
 
-    name: str
-    check_in: date
-    check_out: date
-    hotels: tuple[Hotel, ...]
+    @property
+    def check_in_formatted(self) -> str:
+        """Return the check-in date formatted as 'DD MMM YYYY'."""
+        return self._format_date(self.check_in)
+
+    @property
+    def check_out_formatted(self) -> str:
+        """Return the check-out date formatted as 'DD MMM YYYY'."""
+        return self._format_date(self.check_out)
+
+    @staticmethod
+    def _format_date(dt: date) -> str:
+        """Format a date object as 'DD MMM'.
+
+        Args:
+            dt: The date to format.
+        Returns:
+            The formatted date string."""
+        return dt.strftime("%d %b")
+
+    @staticmethod
+    def _parse_date(date_str: str) -> date:
+        """Parse date strings in 'YYYY-MM-DD' format into date objects.
+
+        Args:
+            date_str: The date string to parse.
+        Returns:
+            The parsed date object.
+        """
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+
+    def _resolve_hotels(self, hotel_names: list[str]) -> None:
+        """Resolve hotel short names to full hotel information.
+
+        Args:
+            hotel_names: A list of hotel short names to resolve.
+        """
+        logger = get_run_logger()
+
+        hotels = [Hotel(**h) for h in Variable.get("hotels")]
+
+        self._requested_hotels: list[Hotel] = []
+
+        for hotel_name in hotel_names:
+            hotel = next((h for h in hotels if h.short_name == hotel_name), None)
+            if hotel:
+                self._requested_hotels.append(hotel)
+            else:
+                logger.warning(f"Hotel with short name '{hotel_name}' not found.")
 
 
 @task
-def get_hotels() -> tuple[Hotel, ...]:
-    """Load and return the list of enabled hotels from Prefect variables.
+def get_trips() -> list[Trip]:
+    """Load and return the list of trips from Prefect variables.
 
     Returns:
-        tuple[Hotel, ...]: A tuple of enabled Hotel objects.
+        list[Trip]: A list of trips.
     """
 
     logger = get_run_logger()
 
-    hotels = tuple(Hotel(**h) for h in Variable.get("hotels"))
-    enabled_hotels = tuple(h for h in hotels if h.enabled)
+    trips = [
+        Trip(
+            name=t["name"],
+            check_in=t["check_in"],
+            check_out=t["check_out"],
+            hotel_names=t["hotels"],
+        )
+        for t in Variable.get("trips")
+    ]
 
-    logger.info(f"Loaded {len(hotels)} hotels: {[h.name for h in hotels]}")
+    logger.info(f"Loaded {len(trips)} trips: {[t.name for t in trips]}")
 
-    return enabled_hotels
-
-
-@task
-def get_stays(hotels: tuple[Hotel, ...]) -> list[Stay]:
-    """Load and return the list of stays from Prefect variables.
-
-    Returns:
-        list[Stay]: A list of Stay objects.
-    """
-
-    logger = get_run_logger()
-
-    stays = []
-
-    for stay in Variable.get("stays"):
-        stay_hotels = [h for h in hotels if h.name in stay["hotels"]]
-        if stay_hotels:
-            stays.append(
-                Stay(
-                    name=stay["name"],
-                    check_in=stay["check_in"],
-                    check_out=stay["check_out"],
-                    hotels=tuple(stay_hotels),
-                )
-            )
-
-    logger.info(f"Loaded {len(stays)} stays: {[s.name for s in stays]}")
-
-    return stays
+    return trips
 
 
 @task
-def get_stay_rates(stays: list[Stay]) -> dict[str, list]:
-    """Get rates for each stay.
+def get_hotel_rates(
+    hotels: Hotel, check_in: date, check_out: date
+) -> list[HotelsComRate]:
+    """Retrieve hotel rates for the trip from hotels.com API.
 
     Args:
-        stays (list[Stay]): List of Stay objects.
+        hotel: The hotel for which to retrieve rates.
+        check_in: The check-in date for the trip.
+        check_out: The check-out date for the trip.
 
     Returns:
-        dict[str, list]: Dictionary mapping stay names to their rates.
+        list[HotelsComRate]: A list of hotel rates.
     """
-    stay_rates = {}
 
-    for stay in stays:
-        booking_rates = [
-            booking_com_rates(
-                hotel_name=hotel.name,
-                hotel_id=hotel.booking_id,
-                check_in=stay.check_in,
-                check_out=stay.check_out,
-                room_filter=hotel.room_filter,
-                room_patterns=hotel.room_patterns,
+    hotels_com_client = HotelsComClient()
+
+    rates = []
+
+    for hotel in hotels:
+        rates.extend(
+            hotels_com_client.get_prices(
+                city=hotel.city,
+                hotel=hotel.name,
+                check_in=check_in,
+                check_out=check_out,
             )
-            for hotel in stay.hotels
-            if hotel.booking_id
-        ]
-        hotels_rates = [
-            hotels_com_rates(
-                hotel_name=hotel.name,
-                hotel_id=hotel.hotels_id,
-                check_in=stay.check_in,
-                check_out=stay.check_out,
-                room_filter=hotel.room_filter,
-                room_patterns=hotel.room_patterns,
-            )
-            for hotel in stay.hotels
-            if hotel.hotels_id
-        ]
+        )
 
-        booking_rates = [rate for sublist in booking_rates for rate in sublist]
-        hotels_rates = [rate for sublist in hotels_rates for rate in sublist]
-
-        all_rates = [*booking_rates, *hotels_rates]
-        all_rates.sort(key=lambda x: (x.hotel_name, x.total))
-
-        stay_rates[stay.name] = all_rates
-
-    return stay_rates
+    return rates
 
 
 @flow
@@ -145,14 +147,17 @@ def run_report(recipients: tuple[str, ...]):
     """Run the daily hotels report and send it by email.
 
     Args:
-        recipients (tuple[str, ...]): Tuple of recipient email addresses.
+        recipients: Tuple of recipient email addresses.
     """
 
-    hotels = get_hotels()
+    trips = get_trips()
 
-    stays = get_stays(hotels)
-
-    stay_rates = get_stay_rates(stays)
+    for trip in trips:
+        trip.rates = get_hotel_rates(
+            hotels=trip._requested_hotels,
+            check_in=trip.check_in,
+            check_out=trip.check_out,
+        )
 
     env = Environment(
         loader=FileSystemLoader("src/automations/templates"),
@@ -160,7 +165,7 @@ def run_report(recipients: tuple[str, ...]):
     )
     template = env.get_template("email.html.j2")
 
-    html = template.render(stays=stay_rates)
+    html = template.render(trips=trips)
 
     send_mail(to=recipients, subject="Daily Hotels Report", body=html)
 
