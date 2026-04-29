@@ -41,7 +41,7 @@ class RapidApiClient:
                 "X-RapidAPI-Host": self._host,
                 "X-RapidAPI-Key": self._api_key.get_secret_value(),
             },
-            timeout=15,
+            timeout=60,
         )
 
     def get(
