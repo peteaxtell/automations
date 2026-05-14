@@ -207,6 +207,9 @@ class HotelsComClient(RapidApiClient):
         except KeyError:
             raise HotelsComProcessingError("Unexpected response structure")
 
+        if not listings:
+            return []
+
         for listing in listings:
             primary_selections = listing["primarySelections"]
 
