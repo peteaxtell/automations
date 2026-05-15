@@ -4,11 +4,12 @@ from datetime import date, datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from prefect import flow, get_run_logger, task
 from prefect.variables import Variable
-from src.config import S3Config
-from src.shared.clients.hotels_com import HotelsComClient, HotelsComRate
-from src.shared.clients.s3_client import S3Client
-from src.shared.exceptions import S3FileNotFoundError
-from src.shared.mail import send_mail
+
+from src.automations.config import S3Config
+from src.automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
+from src.automations.shared.clients.s3_client import S3Client
+from src.automations.shared.exceptions import S3FileNotFoundError
+from src.automations.shared.mail import send_mail
 
 
 @dataclass
@@ -245,4 +246,5 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
+    run_report(recipients)
     run_report(recipients)
