@@ -7,8 +7,8 @@ import botocore
 from prefect import get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 
-from automations.config import S3Config
-from automations.shared.exceptions import S3FileNotFoundError
+from src.automations.config import S3Config
+from src.automations.shared.exceptions import S3FileNotFoundError
 
 
 class S3Client:
