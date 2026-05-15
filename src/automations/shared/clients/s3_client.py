@@ -4,8 +4,7 @@ from io import BytesIO, StringIO
 
 import boto3
 import botocore
-from prefect import get_run_logger, task
-from prefect.cache_policies import NO_CACHE
+from prefect import get_run_logger
 
 from src.automations.config import S3Config
 from src.automations.shared.exceptions import S3FileNotFoundError
@@ -24,7 +23,6 @@ class S3Client:
             aws_secret_access_key=self._config.secret_access_key.get_secret_value(),
         )
 
-    @task(cache_policy=NO_CACHE)
     def _download_file(self, bucket: str, object_name: str) -> bytes:
         """Get the bytes of a file from an S3 bucket.
 
@@ -58,7 +56,6 @@ class S3Client:
             else:
                 raise
 
-    @task(cache_policy=NO_CACHE)
     def _upload_file(self, bucket: str, file: BytesIO, object_name: str) -> None:
         """Upload a file to an S3 bucket.
 
