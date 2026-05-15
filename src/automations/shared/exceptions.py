@@ -8,3 +8,7 @@ class HotelsComError(Exception):
 
 class HotelsComProcessingError(HotelsComError):
     """Raised when there is an error processing Hotels.com API data."""
+
+
+class S3FileNotFoundError(Exception):
+    """Raised when a specified file is not found in the S3 bucket."""

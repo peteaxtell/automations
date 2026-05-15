@@ -4,9 +4,11 @@ from datetime import date, datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from prefect import flow, get_run_logger, task
 from prefect.variables import Variable
-
-from src.automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
-from src.automations.shared.mail import send_mail
+from src.config import S3Config
+from src.shared.clients.hotels_com import HotelsComClient, HotelsComRate
+from src.shared.clients.s3_client import S3Client
+from src.shared.exceptions import S3FileNotFoundError
+from src.shared.mail import send_mail
 
 
 @dataclass
@@ -43,6 +45,26 @@ class Trip:
     def check_out_formatted(self) -> str:
         """Return the check-out date formatted as 'DD MMM YYYY'."""
         return self._format_date(self.check_out)
+
+    def to_csv_format(self) -> list[dict]:
+        """Convert the trip data to a dictionary format suitable for CSV output.
+
+        Returns:
+           A list of dictionaries, each representing a row of trip data for CSV output.
+        """
+
+        return [
+            {
+                "trip_name": self.name,
+                "check_in": self.check_in_formatted,
+                "check_out": self.check_out_formatted,
+                "hotel_name": rate.hotel_name,
+                "room_name": rate.room_name,
+                "total": rate.total,
+                "per_night": rate.per_night,
+            }
+            for rate in self.rates
+        ]
 
     @staticmethod
     def _format_date(dt: date) -> str:
@@ -102,7 +124,7 @@ def get_trips() -> list[Trip]:
             check_out=t["check_out"],
             hotel_names=t["hotels"],
         )
-        for t in Variable.get("trips")
+        for t in Variable.get("trips")[:1]
     ]
 
     logger.info(f"Loaded {len(trips)} trips: {[t.name for t in trips]}")
@@ -142,9 +164,66 @@ def get_hotel_rates(
     return rates
 
 
+@task
+def save_to_s3(trips: list[Trip]) -> None:
+    """Append trip data to file in S3.
+
+    Args:
+        trips: The list of trips to save.
+    """
+
+    logger = get_run_logger()
+
+    filename = Variable.get("report-filename")
+
+    s3_client = S3Client()
+
+    try:
+        existing_data = s3_client.download_csv(
+            bucket=S3Config().bucket, object_name=filename
+        )
+    except S3FileNotFoundError:
+        logger.info(
+            f"No existing data found in S3 for {filename}, new file will be created."
+        )
+        existing_data = []
+
+    report_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for trip in trips:
+        trip_data = trip.to_csv_format()
+        for row in trip_data:
+            row["report_date"] = report_date
+        existing_data.extend(trip_data)
+
+    s3_client.upload_csv(
+        bucket=S3Config().bucket, data=existing_data, object_name=filename
+    )
+
+
+@task
+def send_report(trips: list[Trip], recipients: tuple[str, ...]) -> None:
+    """Send the hotel rates report by email.
+
+    Args:
+        trips: The list of trips to include in the report.
+        recipients: Tuple of recipient email addresses.
+    """
+
+    env = Environment(
+        loader=FileSystemLoader("src/automations/templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = env.get_template("email.html.j2")
+
+    html = template.render(trips=trips)
+
+    send_mail(to=recipients, subject="Daily Hotels Report", body=html)
+
+
 @flow
-def run_report(recipients: tuple[str, ...]):
-    """Run the daily hotels report and send it by email.
+def run_report(recipients: tuple[str, ...]) -> None:
+    """Get hotel rates, save to S3, and send email report.
 
     Args:
         recipients: Tuple of recipient email addresses.
@@ -159,15 +238,9 @@ def run_report(recipients: tuple[str, ...]):
             check_out=trip.check_out,
         )
 
-    env = Environment(
-        loader=FileSystemLoader("src/automations/templates"),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    template = env.get_template("email.html.j2")
+    save_to_s3(trips)
 
-    html = template.render(trips=trips)
-
-    send_mail(to=recipients, subject="Daily Hotels Report", body=html)
+    send_report(trips, recipients)
 
 
 if __name__ == "__main__":

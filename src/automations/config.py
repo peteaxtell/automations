@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 class RapidApiConfig(BaseSettings):
     """Configuration settings for the RapidAPI client."""
 
-    api_key: SecretStr = Secret.load("rapid-api-key").get()
+    api_key: SecretStr = SecretStr(Secret.load("rapid-api-key").get())
 
 
 class HotelsComConfig(BaseSettings):
@@ -17,3 +17,12 @@ class HotelsComConfig(BaseSettings):
     host: str = "hotels4.p.rapidapi.com"
     locale: str = "en_GB"
     site_id: int = 300000005
+
+
+class S3Config(BaseSettings):
+    """Configuration settings for S3 access."""
+
+    bucket: str = "axtell-automations"
+    region: str = "eu-north-1"
+    access_key_id: str = "AKIAYSE4OKEFZJ4YGJ4G"
+    secret_access_key: SecretStr = SecretStr(Secret.load("s3-secret-key").get())
