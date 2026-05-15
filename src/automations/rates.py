@@ -125,7 +125,7 @@ def get_trips() -> list[Trip]:
             check_out=t["check_out"],
             hotel_names=t["hotels"],
         )
-        for t in Variable.get("trips")[:1]
+        for t in Variable.get("trips")
     ]
 
     logger.info(f"Loaded {len(trips)} trips: {[t.name for t in trips]}")
@@ -246,5 +246,4 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
-    run_report(recipients)
     run_report(recipients)
