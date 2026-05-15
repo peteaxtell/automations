@@ -67,6 +67,7 @@ class S3Client:
 
         logger = get_run_logger()
 
+        file.seek(0)
         self._client.upload_fileobj(Fileobj=file, Bucket=bucket, Key=object_name)
 
         logger.info(
@@ -99,4 +100,6 @@ class S3Client:
             writer.writeheader()
             writer.writerows(data)
             file.seek(0)
-            self._upload_file(bucket, file, object_name)
+            self._upload_file(
+                bucket, BytesIO(file.getvalue().encode("utf-8")), object_name
+            )
