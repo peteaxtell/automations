@@ -7,9 +7,9 @@ from typing import Dict, List
 from prefect import get_run_logger
 from pydantic import BaseModel
 
-from src.automations.config import HotelsComConfig
-from src.automations.shared.clients.rapid_api import RapidApiClient
-from src.automations.shared.exceptions import HotelsComProcessingError
+from automations.config import HotelsComConfig
+from automations.shared.clients.rapid_api import RapidApiClient
+from automations.shared.exceptions import HotelsComProcessingError
 
 
 @dataclass
@@ -55,17 +55,17 @@ class HotelsComClient(RapidApiClient):
         Args:
             dt: The date to convert.
         Returns:
-            Dict[str, int]: A dictionary with keys 'year', 'month', and 'day' corresponding to the date
+            A dictionary with keys 'year', 'month', and 'day' corresponding to the date
         """
         return {"year": dt.year, "month": dt.month, "day": dt.day}
 
-    def _search(self, query: str) -> List[Dict]:
+    async def _search(self, query: str) -> List[Dict]:
         """Call the search endpoint.
 
         Args:
             query: The search query string.
         Returns:
-            List[Dict]: A list of search results as dictionaries.
+            A list of search results as dictionaries.
         """
         params = {
             "q": query,
@@ -73,45 +73,51 @@ class HotelsComClient(RapidApiClient):
             "siteId": self._config.site_id,
         }
 
-        response = self.get("locations/v3/search", params=params).json()
+        response = (await self.get("locations/v3/search", params=params)).json()
 
         return response.get("sr", [])
 
-    def _get_region_id(self, city: str) -> str:
+    async def _get_region_id(self, city: str) -> str | None:
         """Get the region ID for a given city name.
 
         Args:
             city: The name of the city to search for.
         Returns:
-            str: The region ID corresponding to the city.
+            The region ID corresponding to the city.
         """
-        results = self._search(city)
+
+        logger = get_run_logger()
+
+        results = await self._search(city)
 
         if not results:
-            raise HotelsComProcessingError(f"No regions found for city '{city}'")
+            logger.warning(f"No regions found for city '{city}'")
+            return None
 
         regions = [
             result for result in results if result.get("type") in ("CITY", "MULTICITY")
         ]
 
         if not regions:
-            raise HotelsComProcessingError(f"No regions found for city '{city}'")
+            logger.warning(f"No regions found for city '{city}'")
+            return None
 
         if len(regions) > 1:
-            raise HotelsComProcessingError(f"Multiple regions found for city '{city}'")
+            logger.warning(f"Multiple regions found for city '{city}'")
+            return None
 
         return regions[0]["gaiaId"]
 
-    def _get_hotel_id(self, city_name: str, hotel_name: str) -> str | None:
+    async def _get_hotel_id(self, city_name: str, hotel_name: str) -> str | None:
         """Get the hotel ID for a given city and hotel name.
 
         Args:
             city_name: The name of the city where the hotel is located.
             hotel_name: The name of the hotel to search for.
         Returns:
-            str | None: The hotel ID corresponding to the hotel name, or None if not found.
+            The hotel ID corresponding to the hotel name, or None if not found.
         """
-        results = self._search(f"{city_name} {hotel_name}")
+        results = await self._search(f"{city_name} {hotel_name}")
 
         if not results:
             return None
@@ -134,18 +140,24 @@ class HotelsComClient(RapidApiClient):
 
         return hotels[0]["hotelId"]
 
-    def _get_destination(self, city: str, hotel: str) -> HotelsComDestination | None:
+    async def _get_destination(
+        self, city: str, hotel: str
+    ) -> HotelsComDestination | None:
         """Get the destination information for a given city and hotel name.
 
         Args:
             city: The name of the city where the hotel is located.
             hotel: The name of the hotel to search for.
         Returns:
-            HotelsComDestination | None: A HotelsComDestination object containing the hotel and region IDs, or None if the hotel is not found.
+            A HotelsComDestination object containing the hotel and region IDs, or None if the hotel is not found.
         """
 
-        region_id = self._get_region_id(city)
-        hotel_id = self._get_hotel_id(city, hotel)
+        region_id = await self._get_region_id(city)
+
+        if not region_id:
+            return None
+
+        hotel_id = await self._get_hotel_id(city, hotel)
 
         if not hotel_id:
             return None
@@ -155,7 +167,7 @@ class HotelsComClient(RapidApiClient):
             region_id=region_id,
         )
 
-    def get_prices(
+    async def get_prices(
         self,
         city: str,
         hotel: str,
@@ -172,12 +184,12 @@ class HotelsComClient(RapidApiClient):
             check_out: The check-out date.
             adults: The number of adults for the booking (default is 2).
         Returns:
-            List[HotelsComRate]: A list of HotelsComRate objects containing room rate information.
+            A list of HotelsComRate objects containing room rate information.
         """
 
         logger = get_run_logger()
 
-        destination = self._get_destination(city, hotel)
+        destination = await self._get_destination(city, hotel)
 
         if not destination:
             logger.warning(f"'{hotel}' not found in '{city}'. Skipping.")
@@ -198,7 +210,7 @@ class HotelsComClient(RapidApiClient):
             "rooms": [{"adults": adults}],
         }
 
-        response = self.post("properties/v2/get-offers", data=data).json()
+        response = (await self.post("properties/v2/get-offers", data=data)).json()
 
         room_rates: Dict[str, float] = {}
 

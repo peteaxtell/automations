@@ -6,8 +6,8 @@ import boto3
 import botocore
 from prefect import get_run_logger
 
-from src.automations.config import S3Config
-from src.automations.shared.exceptions import S3FileNotFoundError
+from automations.config import S3Config
+from automations.shared.exceptions import S3FileNotFoundError
 
 
 class S3Client:
@@ -30,7 +30,7 @@ class S3Client:
             bucket: The name of the S3 bucket.
             object_name: The key of the object in the S3 bucket.
         Returns:
-            The bytes of the file downloaded from S3.
+            The bytes of the downloaded file.
         """
 
         logger = get_run_logger()
@@ -81,7 +81,7 @@ class S3Client:
             bucket: The name of the S3 bucket.
             object_name: The key of the object in the S3 bucket.
         Returns:
-            A list of dictionaries representing the rows in the CSV file.
+            CSV rows as a list of dictionaries.
         """
         content = self._download_file(bucket, object_name)
 

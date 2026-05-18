@@ -7,6 +7,8 @@ dependencies = [
     "boto3>=1.43.2",
     "httpx>=0.28.1",
     "jinja2>=3.1.6",
+    "openai>=2.37.0",
+    "polars>=1.40.1",
     "prefect>=3.4.20",
 ]
 

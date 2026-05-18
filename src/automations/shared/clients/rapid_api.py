@@ -1,9 +1,11 @@
+import asyncio
+import random
 from typing import Any, Dict, Optional
 
 import httpx
 
-from src.automations.config import RapidApiConfig
-from src.automations.shared.exceptions import RapidAPIError
+from automations.config import RapidApiConfig
+from automations.shared.exceptions import RapidAPIError
 
 
 class RapidApiClient:
@@ -14,28 +16,10 @@ class RapidApiClient:
         self._base_url = base_url
         self._host = host
 
-    def _handle_http_error(self, response: httpx.Response) -> None:
-        """Handle HTTP errors by raising a RapidApiError with the appropriate message.
-
-        Behavior mirrors the screenshots: attempt to parse a JSON 'message' field
-        and fall back to the raw response content if parsing fails.
-        """
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            try:
-                response.read()
-                error_data = response.json()
-                message = error_data["message"]
-            except (ValueError, KeyError):
-                message = response.content
-            raise RapidAPIError(f"{e.response.status_code} {message}") from e
-
-    def _http_client(self) -> httpx.Client:
-        """Create an HTTP client configured for RapidAPI."""
-        return httpx.Client(
+    def _http_client(self) -> httpx.AsyncClient:
+        """Create an asynchronous HTTP client configured for RapidAPI."""
+        return httpx.AsyncClient(
             base_url=self._base_url,
-            event_hooks={"response": [self._handle_http_error]},
             headers={
                 "Content-Type": "application/json",
                 "X-RapidAPI-Host": self._host,
@@ -44,7 +28,62 @@ class RapidApiClient:
             timeout=60,
         )
 
-    def get(
+    async def _request_with_backoff(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """Perform an HTTP request with retries for 429 and transient server errors.
+
+        Uses exponential backoff with jitter. Retries on 429 and 5xx responses.
+        """
+
+        max_attempts = 5
+        base_delay = 0.5
+
+        attempt = 0
+        while True:
+            attempt += 1
+            async with self._http_client() as client:
+                response = await client.request(method, endpoint, **kwargs)
+
+            status = response.status_code
+
+            # If response indicates success, return it
+            if 200 <= status < 400:
+                return response
+
+            # For retryable statuses (429 or 5xx) perform backoff and retry
+            if status in (429,) or (500 <= status < 600):
+                if attempt >= max_attempts:
+                    # final attempt, return response so caller can inspect/raise
+                    return response
+
+                # compute exponential backoff with jitter
+                delay = base_delay * (2 ** (attempt - 1))
+                jitter = random.uniform(0, delay * 0.1)
+                await asyncio.sleep(delay + jitter)
+                continue
+
+            # Non-retryable error (4xx other than 429): parse and raise RapidAPIError
+            try:
+                await response.aread()
+            except Exception:
+                pass
+
+            try:
+                error_data = response.json()
+                message = error_data.get("message", response.content)
+            except Exception:
+                try:
+                    message = response.content.decode("utf-8", errors="replace")
+                except Exception:
+                    message = response.content
+
+            raise RapidAPIError(f"{status} {message}")
+
+    async def get(
         self, endpoint: str, params: Optional[Dict[str, Any]] = None
     ) -> httpx.Response:
         """Make a GET request to the specified endpoint with optional query parameters.
@@ -54,14 +93,12 @@ class RapidApiClient:
             params: Optional query parameters to include in the request.
 
         Returns:
-            httpx.Response: The httpx.Response from the API.
+            The response object returned by the API.
         """
-        with self._http_client() as client:
-            response = client.get(endpoint, params=params)
-
+        response = await self._request_with_backoff("GET", endpoint, params=params)
         return response
 
-    def post(
+    async def post(
         self, endpoint: str, data: Optional[Dict[str, Any]] = None
     ) -> httpx.Response:
         """Make a POST request to the specified endpoint with optional JSON data.
@@ -70,9 +107,7 @@ class RapidApiClient:
             endpoint: The API endpoint to call (relative to the base URL).
             data: Optional dictionary to send as JSON in the request body.
         Returns:
-            httpx.Response: The httpx.Response from the API.
+            The response object returned by the API.
         """
-        with self._http_client() as client:
-            response = client.post(endpoint, json=data)
-
+        response = await self._request_with_backoff("POST", endpoint, json=data)
         return response
