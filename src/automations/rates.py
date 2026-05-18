@@ -2,6 +2,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
+from io import StringIO
 
 import polars as pl
 from openai import OpenAI
@@ -346,7 +347,9 @@ example 2:
 
 
 @task
-def send_report(content: str, recipients: tuple[str, ...]) -> None:
+def send_report(
+    content: str, recipients: tuple[str, ...], csv_bytes: bytes | None = None
+) -> None:
     """Send the hotel rates report by email.
 
     Args:
@@ -354,7 +357,17 @@ def send_report(content: str, recipients: tuple[str, ...]) -> None:
         recipients: Tuple of recipient email addresses.
     """
 
-    send_mail(to=recipients, subject="Daily Hotels Report", body=content)
+    # Attach CSV bytes if provided
+    attachments = []
+    if csv_bytes:
+        attachments.append(("rates.csv", csv_bytes))
+
+    send_mail(
+        to=recipients,
+        subject="Daily Hotels Report",
+        body=content,
+        attachments=attachments,
+    )
 
 
 @flow
@@ -385,7 +398,26 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
     summary = get_summary(csv_data)
 
-    send_report(summary, recipients)
+    # build in-memory CSV attachment for this run and expose to send_report
+    csv_buf = StringIO()
+    # write header
+    if csv_data:
+        headers = list(csv_data[0].keys())
+        csv_buf.write(",".join(headers) + "\n")
+        for row in csv_data:
+            # ensure values are strings and escape commas by wrapping in quotes if needed
+            vals = []
+            for h in headers:
+                v = row.get(h, "")
+                s = str(v)
+                if "," in s or "\n" in s:
+                    s = '"' + s.replace('"', '""') + '"'
+                vals.append(s)
+            csv_buf.write(",".join(vals) + "\n")
+
+    csv_bytes = csv_buf.getvalue().encode("utf-8")
+
+    send_report(summary, recipients, csv_bytes=csv_bytes)
 
 
 if __name__ == "__main__":
