@@ -13,7 +13,7 @@ if __name__ == "__main__":
         ),
         parameters={"recipients": ["axtellpete@gmail.com", "s.axtell@winton.com"]},
         job_variables={
-            "pip_packages": ["boto3", "httpx", "jinja2"],
+            "pip_packages": ["boto3", "httpx", "jinja2", "polars", "openai"],
             "env": {"PYTHONPATH": "src"},
         },
     )
