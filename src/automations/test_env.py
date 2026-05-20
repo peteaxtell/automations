@@ -8,5 +8,8 @@ def test_env():
 
     logger = prefect.get_run_logger()
     logger.info(f"Current working directory: {os.getcwd()}")
-    for key, value in os.environ.items():
-        logger.info(f"{key}={value}")
+    logger.info(f"PYTHONPATH: {os.environ.get('PYTHONPATH')}")
+    logger.info("Importing automations.config...")
+    import automations.config
+
+    logger.info(f"automations.config: {automations.config}")
