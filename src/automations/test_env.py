@@ -1,3 +1,4 @@
+import prefect
 from prefect import flow
 
 
@@ -5,6 +6,7 @@ from prefect import flow
 def test_env():
     import os
 
-    print(f"Current working directory: {os.getcwd()}")
+    logger = prefect.get_run_logger()
+    logger.info(f"Current working directory: {os.getcwd()}")
     for key, value in os.environ.items():
-        print(f"{key}={value}")
+        logger.info(f"{key}={value}")
