@@ -7,7 +7,6 @@ from typing import Dict, List
 from prefect import get_run_logger
 from pydantic import BaseModel
 
-from automations.config import HotelsComConfig
 from automations.shared.clients.rapid_api import RapidApiClient
 from automations.shared.exceptions import HotelsComProcessingError
 
@@ -46,6 +45,8 @@ class HotelsComRate(BaseModel):
 class HotelsComClient(RapidApiClient):
     def __init__(self):
         """Initialize the Hotels.com API client."""
+        from automations.config import HotelsComConfig
+
         self._config = HotelsComConfig()
         super().__init__(base_url=self._config.base_url, host=self._config.host)
 

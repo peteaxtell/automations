@@ -9,7 +9,6 @@ from openai import OpenAI
 from prefect import flow, get_run_logger, task
 from prefect.variables import Variable
 
-from automations.config import OpenAIConfig, S3Config
 from automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
 from automations.shared.clients.s3_client import S3Client
 from automations.shared.exceptions import S3FileNotFoundError
@@ -200,6 +199,7 @@ def save_to_s3(data: list[dict]) -> None:
     Args:
         trips: The list of trips to save as a list of dictionaries.
     """
+    from automations.config import S3Config
 
     logger = get_run_logger()
 
@@ -240,6 +240,8 @@ def get_summary(data: list[dict]) -> str:
     Returns:
         A string summary of the report.
     """
+
+    from automations.config import OpenAIConfig
 
     logger = get_run_logger()
 

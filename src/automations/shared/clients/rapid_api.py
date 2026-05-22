@@ -4,13 +4,14 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from automations.config import RapidApiConfig
 from automations.shared.exceptions import RapidAPIError
 
 
 class RapidApiClient:
     def __init__(self, base_url: str, host: str):
         """Initialize the RapidAPI client."""
+        from automations.config import RapidApiConfig
+
         self._rapid_config = RapidApiConfig()
         self._api_key = self._rapid_config.api_key
         self._base_url = base_url
