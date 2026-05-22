@@ -153,7 +153,7 @@ async def get_hotel_rates(
         Collected hotel rates for the requested hotel(s).
     """
 
-    rapid_api_key = Secret.aload("rapid-api-key").get()
+    rapid_api_key = Secret.aload("rapid-api-key")
 
     hotels_com_client = HotelsComClient(rapid_api_key=rapid_api_key)
 
