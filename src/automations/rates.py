@@ -7,6 +7,7 @@ from io import StringIO
 import polars as pl
 from openai import OpenAI
 from prefect import flow, get_run_logger, task
+from prefect.blocks.system import Secret
 from prefect.variables import Variable
 
 from automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
@@ -152,7 +153,9 @@ async def get_hotel_rates(
         Collected hotel rates for the requested hotel(s).
     """
 
-    hotels_com_client = HotelsComClient()
+    rapid_api_key = await Secret.load("rapid-api-key").get()
+
+    hotels_com_client = HotelsComClient(rapid_api_key=rapid_api_key)
 
     rates_by_hotel = await asyncio.gather(
         *[
@@ -205,7 +208,9 @@ def save_to_s3(data: list[dict]) -> None:
 
     filename = Variable.get("report-filename")
 
-    s3_client = S3Client()
+    s3_access_key = Secret.load("s3-access-key").get()
+
+    s3_client = S3Client(s3_access_key=s3_access_key)
 
     try:
         existing_data = s3_client.download_csv(
@@ -337,7 +342,10 @@ example 2:
 <p>Full rates table attached</p>
  """
 
-    config = OpenAIConfig()
+    model = Variable.get("openai-model")
+    api_key = Secret.load("openai-api-key").get()
+
+    config = OpenAIConfig(model=model, api_key=api_key)
 
     client = OpenAI(api_key=config.api_key.get_secret_value())
 
@@ -424,4 +432,5 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
+    run_report(recipients)
     run_report(recipients)

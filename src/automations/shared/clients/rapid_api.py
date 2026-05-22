@@ -8,12 +8,10 @@ from automations.shared.exceptions import RapidAPIError
 
 
 class RapidApiClient:
-    def __init__(self, base_url: str, host: str):
+    def __init__(self, base_url: str, host: str, api_key: str):
         """Initialize the RapidAPI client."""
-        from automations.config import RapidApiConfig
 
-        self._rapid_config = RapidApiConfig()
-        self._api_key = self._rapid_config.api_key
+        self._api_key = api_key
         self._base_url = base_url
         self._host = host
 
@@ -24,7 +22,7 @@ class RapidApiClient:
             headers={
                 "Content-Type": "application/json",
                 "X-RapidAPI-Host": self._host,
-                "X-RapidAPI-Key": self._api_key.get_secret_value(),
+                "X-RapidAPI-Key": self._api_key,
             },
             timeout=60,
         )

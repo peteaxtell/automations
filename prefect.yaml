@@ -1,0 +1,16 @@
+pull:
+  - prefect.deployments.steps.git_clone:
+      id: clone-step
+      repository: https://github.com/peteaxtell/automations.git
+      branch: main
+  - prefect.deployments.steps.pip_install_requirements:
+      directory: "{{ clone-step.directory }}"
+
+deployments:
+  - name: hotel-rates-report
+    entrypoint: automations.rates:run_report
+    schedules:
+        - cron: "0 9 * * *"
+          timezone: "Europe/London"
+    work_pool:
+      name: managed-workpool
