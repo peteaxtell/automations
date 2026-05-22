@@ -6,6 +6,7 @@ import boto3
 import botocore
 from prefect import get_run_logger
 
+from automations.config import S3Config
 from automations.shared.exceptions import S3FileNotFoundError
 
 
@@ -14,7 +15,6 @@ class S3Client:
 
     def __init__(self, secret_access_key: str) -> None:
         """Initialize the S3 client."""
-        from automations.config import S3Config
 
         self._config = S3Config()
         self._client = boto3.client(
