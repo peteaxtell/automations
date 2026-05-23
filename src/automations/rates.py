@@ -10,7 +10,7 @@ from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 from prefect.variables import Variable
 
-from automations.config import OpenAIConfig, S3Config
+from automations.config import S3Config
 from automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
 from automations.shared.clients.s3_client import S3Client
 from automations.shared.exceptions import S3FileNotFoundError
@@ -343,13 +343,11 @@ example 2:
     model = Variable.get("openai-model")
     api_key = Secret.load("openai-api-key").get()
 
-    config = OpenAIConfig(model=model, api_key=api_key)
-
-    client = OpenAI(api_key=config.api_key.get_secret_value())
+    client = OpenAI(api_key=api_key)
 
     logger.info("Sending prompt to OpenAI for summary generation.")
 
-    response = client.responses.create(model=config.model, input=prompt)
+    response = client.responses.create(model=model, input=prompt)
 
     return response.output_text
 
@@ -430,6 +428,4 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
-    run_report(recipients)
-    run_report(recipients)
     run_report(recipients)
