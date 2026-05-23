@@ -13,7 +13,7 @@ from automations.shared.exceptions import S3FileNotFoundError
 class S3Client:
     """S3 client"""
 
-    def __init__(self, secret_access_key: str) -> None:
+    def __init__(self, secret_key: str) -> None:
         """Initialize the S3 client."""
 
         self._config = S3Config()
@@ -21,7 +21,7 @@ class S3Client:
             "s3",
             region_name=self._config.region,
             aws_access_key_id=self._config.access_key_id,
-            aws_secret_access_key=secret_access_key,
+            aws_secret_access_key=secret_key,
         )
 
     def _download_file(self, bucket: str, object_name: str) -> bytes:

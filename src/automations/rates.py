@@ -208,9 +208,9 @@ def save_to_s3(data: list[dict]) -> None:
 
     filename = Variable.get("report-filename")
 
-    s3_access_key = Secret.load("s3-access-key").get()
+    s3_secret_key = Secret.load("s3-secret-key").get()
 
-    s3_client = S3Client(s3_access_key=s3_access_key)
+    s3_client = S3Client(secret_key=s3_secret_key)
 
     try:
         existing_data = s3_client.download_csv(
