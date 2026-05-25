@@ -511,7 +511,7 @@ def send_report(
 
 
 @flow
-def run_report(recipients: tuple[str, ...]) -> None:
+def run_trips_report(recipients: tuple[str, ...]) -> None:
     """Get hotel rates, save to S3, and send email report.
 
     Args:
@@ -545,4 +545,4 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
 if __name__ == "__main__":
     recipients = ("axtellpete@gmail.com",)
-    run_report(recipients)
+    run_trips_report(recipients)

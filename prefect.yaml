@@ -8,7 +8,7 @@ pull:
 
 deployments:
   - name: hotel-rates-report
-    entrypoint: automations.rates:run_report
+    entrypoint: automations.rates:run_trips_report
     schedules:
         - cron: "0 9 * * *"
           timezone: "Europe/London"
