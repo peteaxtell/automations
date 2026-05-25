@@ -213,7 +213,7 @@ def save_to_s3(data: list[dict]) -> None:
 
     logger = get_run_logger()
 
-    filename = Variable.get("report-filename")
+    filename = Variable.get("trips-report-filename")
 
     s3_secret_key = Secret.load("s3-secret-key").get()
 
