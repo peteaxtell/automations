@@ -49,14 +49,12 @@ class RapidApiClient:
 
             status = response.status_code
 
-            # If response indicates success, return it
             if 200 <= status < 400:
                 return response
 
             # For retryable statuses (429 or 5xx) perform backoff and retry
             if status in (429,) or (500 <= status < 600):
                 if attempt >= max_attempts:
-                    # final attempt, return response so caller can inspect/raise
                     return response
 
                 # compute exponential backoff with jitter
@@ -65,7 +63,6 @@ class RapidApiClient:
                 await asyncio.sleep(delay + jitter)
                 continue
 
-            # Non-retryable error (4xx other than 429): parse and raise RapidAPIError
             try:
                 await response.aread()
             except Exception:

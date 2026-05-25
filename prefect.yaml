@@ -12,5 +12,7 @@ deployments:
     schedules:
         - cron: "0 9 * * *"
           timezone: "Europe/London"
+    parameters:
+      - recipients: ["axtellpete@gmail.com", "axtellsabrina@gmail.com"]
     work_pool:
       name: managed-workpool

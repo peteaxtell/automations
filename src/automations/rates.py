@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -9,6 +10,10 @@ from openai import OpenAI
 from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 from prefect.variables import Variable
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from automations.config import S3Config
 from automations.shared.clients.hotels_com import HotelsComClient, HotelsComRate
@@ -44,12 +49,12 @@ class Trip:
 
     @property
     def check_in_formatted(self) -> str:
-        """Return the check-in date formatted as 'DD MMM YYYY'."""
+        """Return the check-in date formatted as 'DDD DD MMM YYYY'."""
         return self._format_date(self.check_in)
 
     @property
     def check_out_formatted(self) -> str:
-        """Return the check-out date formatted as 'DD MMM YYYY'."""
+        """Return the check-out date formatted as 'DDD DD MMM YYYY'."""
         return self._format_date(self.check_out)
 
     def to_csv_format(self) -> list[dict]:
@@ -74,13 +79,15 @@ class Trip:
 
     @staticmethod
     def _format_date(dt: date) -> str:
-        """Format a date object as 'DD MMM'.
+        """Format a date object as 'DDD DD MMM YY'.
+
+        e.g. Sat 23 May 26
 
         Args:
             dt: The date to format.
         Returns:
             The formatted date string."""
-        return dt.strftime("%d %b")
+        return dt.strftime("%a %d %b %y")
 
     @staticmethod
     def _parse_date(date_str: str) -> date:
@@ -139,7 +146,7 @@ def get_trips() -> list[Trip]:
     return trips
 
 
-@task
+@task(retries=3, retry_delay_seconds=5)
 async def get_hotel_rates(
     hotels: list[Hotel], check_in: date, check_out: date
 ) -> list[HotelsComRate]:
@@ -352,21 +359,148 @@ example 2:
     return response.output_text
 
 
+def build_csv(data: list[dict]) -> bytes | None:
+    """Build an in-memory CSV from a list of dictionaries and return bytes.
+
+    Args:
+        data: A list of dictionaries representing the trip data to include in the CSV.
+    Returns:
+        The CSV data as bytes.
+    """
+    if not data:
+        return None
+
+    buf = StringIO()
+
+    headers = list(data[0].keys())
+    buf.write(",".join(headers) + "\n")
+
+    for row in data:
+        vals = []
+        for h in headers:
+            v = row.get(h, "")
+            s = str(v)
+            if "," in s or "\n" in s or '"' in s:
+                s = '"' + s.replace('"', '""') + '"'
+            vals.append(s)
+        buf.write(",".join(vals) + "\n")
+
+    return buf.getvalue().encode("utf-8")
+
+
+@task
+def build_pdf(trips: list[Trip]) -> bytes | None:
+    """Build a PDF report from the given data.
+
+    Args:
+        trips: The list of Trip objects containing the data to include in the PDF report.
+    Returns:
+        The PDF data as bytes, or None if there are no trips to include in the report
+    """
+
+    if not trips:
+        return None
+
+    pdf_buffer = io.BytesIO()
+    document = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+
+    elements = []
+
+    header_style = ParagraphStyle(
+        "TripHeader", fontName="Helvetica-Bold", fontSize=10, spaceAfter=4
+    )
+    date_style = ParagraphStyle(
+        "TripDate", fontName="Helvetica", fontSize=9, spaceAfter=6
+    )
+
+    for trip in trips:
+        elements.append(Paragraph(trip.name, header_style))
+        elements.append(
+            Paragraph(
+                f"{trip.check_in_formatted} - {trip.check_out_formatted}", date_style
+            )
+        )
+        elements.append(Spacer(1, 10))
+
+        if trip.rates:
+            table_data = [["Hotel", "Room", "Per Night", "Total"]]
+            table_data.extend(
+                [
+                    [
+                        rate.hotel_name,
+                        rate.room_name,
+                        rate.per_night_formatted,
+                        rate.total_formatted,
+                    ]
+                    for rate in trip.rates
+                ]
+            )
+
+            table = Table(table_data)
+
+            table.hAlign = "LEFT"
+
+            HEADER_START = (0, 0)
+            HEADER_END = (-1, 0)
+            TABLE_START = (0, 0)
+            TABLE_END = (-1, -1)
+            BODY_START = (0, 1)
+            BODY_END = (-1, -1)
+            NUMERIC_START = (2, 1)
+            NUMERIC_END = (3, -1)
+
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", HEADER_START, HEADER_END, colors.whitesmoke),
+                        ("GRID", TABLE_START, TABLE_END, 0.5, colors.grey),
+                        ("LEFTPADDING", TABLE_START, TABLE_END, 12),
+                        ("RIGHTPADDING", TABLE_START, TABLE_END, 12),
+                        ("TOPPADDING", TABLE_START, TABLE_END, 1),
+                        ("BOTTOMPADDING", TABLE_START, TABLE_END, 1),
+                        ("FONTNAME", HEADER_START, HEADER_END, "Helvetica-Bold"),
+                        ("FONTSIZE", TABLE_START, TABLE_END, 9),
+                        ("VALIGN", TABLE_START, TABLE_END, "MIDDLE"),
+                        ("ALIGN", NUMERIC_START, NUMERIC_END, "LEFT"),
+                        ("LEADING", BODY_START, BODY_END, 10),
+                    ]
+                )
+            )
+
+            elements.append(table)
+        else:
+            elements.append(Paragraph("<u>No rates available</u>"))
+
+        elements.append(Spacer(1, 14))
+
+    document.build(elements)
+
+    pdf_buffer.seek(0)
+
+    return pdf_buffer.read()
+
+
 @task
 def send_report(
-    content: str, recipients: tuple[str, ...], csv_bytes: bytes | None = None
+    content: str,
+    recipients: tuple[str, ...],
+    csv_bytes: bytes | None = None,
+    pdf_bytes: bytes | None = None,
 ) -> None:
     """Send the hotel rates report by email.
 
     Args:
         content: The HTML content to include in the report.
         recipients: Tuple of recipient email addresses.
+        csv_bytes: Optional CSV data as bytes to attach.
+        pdf_bytes: Optional PDF data as bytes to attach.
     """
 
-    # Attach CSV bytes if provided
-    attachments = []
+    attachments: list[tuple[str, bytes]] = []
     if csv_bytes:
         attachments.append(("rates.csv", csv_bytes))
+    if pdf_bytes:
+        attachments.append(("rates.pdf", pdf_bytes))
 
     send_mail(
         to=recipients,
@@ -386,7 +520,6 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
     trips = get_trips()
 
-    # submit async tasks so they run concurrently in Prefect
     futures = []
     for trip in trips:
         fut = get_hotel_rates.submit(
@@ -394,7 +527,6 @@ def run_report(recipients: tuple[str, ...]) -> None:
         )
         futures.append((trip, fut))
 
-    # collect results (blocks until each task finishes)
     for trip, fut in futures:
         trip.rates = fut.result()
 
@@ -404,26 +536,11 @@ def run_report(recipients: tuple[str, ...]) -> None:
 
     summary = get_summary(csv_data)
 
-    # build in-memory CSV attachment for this run and expose to send_report
-    csv_buf = StringIO()
-    # write header
-    if csv_data:
-        headers = list(csv_data[0].keys())
-        csv_buf.write(",".join(headers) + "\n")
-        for row in csv_data:
-            # ensure values are strings and escape commas by wrapping in quotes if needed
-            vals = []
-            for h in headers:
-                v = row.get(h, "")
-                s = str(v)
-                if "," in s or "\n" in s:
-                    s = '"' + s.replace('"', '""') + '"'
-                vals.append(s)
-            csv_buf.write(",".join(vals) + "\n")
+    csv_bytes = build_csv(csv_data)
 
-    csv_bytes = csv_buf.getvalue().encode("utf-8")
+    pdf_bytes = build_pdf(trips)
 
-    send_report(summary, recipients, csv_bytes=csv_bytes)
+    send_report(summary, recipients, csv_bytes=csv_bytes, pdf_bytes=pdf_bytes)
 
 
 if __name__ == "__main__":
