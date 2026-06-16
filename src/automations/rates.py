@@ -2,7 +2,7 @@ import asyncio
 import io
 import json
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from io import StringIO
 
 import polars as pl
@@ -70,7 +70,7 @@ class Trip:
                 "check_in": self.check_in_formatted,
                 "check_out": self.check_out_formatted,
                 "hotel_name": rate.hotel_name,
-                "room_name": rate.room_name,
+                "room_type": rate.room_type,
                 "total": rate.total,
                 "per_night": rate.per_night,
             }
@@ -119,6 +119,93 @@ class Trip:
             else:
                 logger.warning(f"Hotel with short name '{hotel_name}' not found.")
 
+class RateCalendar:
+    def __init__(
+        self, hotel_name: str, room_type: str, period_start: str, period_end: str, nights: int
+    ) -> None:
+        """Initialize the RateCalendar model.
+
+        Args:
+            hotel_name: The name of the hotel.
+            room_type: The type of room to check rates for.
+            period_start: The start date of the window to check rates for as a string in 'YYYY-MM-DD' format.
+            period_end: The end date of the window to check rates for as a string in 'YYYY-MM-DD' format.
+        """
+        self.hotel_name = hotel_name
+        self.room_type = room_type
+        self.period_start = self._parse_date(period_start)
+        self.period_end = self._parse_date(period_end)
+        self.nights = nights
+        self.rates: list[HotelsComRate] = []
+        self._resolve_hotel(hotel_name)
+    
+    @property
+    def rate_dates(self) -> list[tuple[date, date]]:
+        """Return all the check-in and check-out dates to get rates for."""
+
+        dates = []
+
+        if self.period_end <= date.today():
+            return []
+
+        check_in = self.period_start
+
+        while check_in < self.period_end:
+            check_out = check_in + timedelta(days=self.nights)
+            if check_in >= date.today():
+                dates.append((check_in, check_out))
+            check_in = check_in + timedelta(days=1)
+
+        return dates
+
+
+    def to_csv_format(self) -> list[dict]:
+        """Convert the trip data to a dictionary format suitable for CSV output.
+
+        Returns:
+           A list of dictionaries, each representing a row of trip data for CSV output.
+        """
+
+        return [
+            {
+                "hotel_name": self.hotel_name,
+                "room_tyoe": self.room_type,
+                "check_in": rate.check_in,
+                "check_out": rate.check_out,
+                "total": rate.total,
+                "per_night": rate.per_night,
+            }
+            for rate in self.rates
+        ]
+
+    @staticmethod
+    def _parse_date(date_str: str) -> date:
+        """Parse date strings in 'YYYY-MM-DD' format into date objects.
+
+        Args:
+            date_str: The date string to parse.
+        Returns:
+            The parsed date.
+        """
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+
+    def _resolve_hotel(self, hotel_name: str) -> None:
+        """Resolve hotel short name to full hotel information.
+
+        Args:
+            hotel_name: A hotel short name to resolve.
+        """
+        logger = get_run_logger()
+
+        hotels = [Hotel(**h) for h in Variable.get("hotels")]
+
+        hotel = next((h for h in hotels if h.short_name == hotel_name), None)
+        
+        if hotel:
+            self._requested_hotel = hotel
+        else:
+            logger.warning(f"Hotel with short name '{hotel_name}' not found.")
+
 
 @task
 def get_trips() -> list[Trip]:
@@ -144,6 +231,31 @@ def get_trips() -> list[Trip]:
     logger.info(f"Loaded {len(trips)} trips: {[t.name for t in trips]}")
 
     return trips
+
+@task
+def get_rate_calendars() -> list[RateCalendar]:
+    """Load and return the list of rate calendars from Prefect variables.
+
+    Returns:
+        The configured rate calendars loaded from Prefect variables.
+    """
+
+    logger = get_run_logger()
+
+    rate_calendars = [
+        RateCalendar(
+            hotel_name=rc["hotel"],
+            room_type=rc["room_type"],
+            period_start=rc["period_start"],
+            period_end=rc["period_end"],
+            nights=rc["nights"]
+        )
+        for rc in Variable.get("rate-calendars")
+    ]
+
+    logger.info(f"Loaded {len(rate_calendars)} rate calendars")
+
+    return rate_calendars
 
 
 @task(retries=3, retry_delay_seconds=5)
@@ -181,39 +293,38 @@ async def get_hotel_rates(
 
 
 @task
-def to_csv_format(trips: list[Trip]) -> list[dict]:
-    """Convert the list of trips to a format suitable for CSV output.
+def to_csv_format(items: list[Trip | RateCalendar]) -> list[dict]:
+    """Convert the data to a format suitable for CSV output.
 
     Args:
-        trips: The list of trips to convert.
+        items: The data to convert.
     Returns:
         A list of dictionaries representing the trip data in a format suitable for CSV output.
     """
 
-    data = []
+    csv_data = []
 
     report_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    for trip in trips:
-        trip_data = trip.to_csv_format()
-        for row in trip_data:
-            row["report_date"] = report_date
-        data.extend(trip_data)
+    for item in items:
+        item_data = item.to_csv_format()
+        for csv_row in item_data:
+            csv_row["report_date"] = report_date
+        csv_data.extend(item_data)
 
-    return data
+    return csv_data
 
 
 @task
-def save_to_s3(data: list[dict]) -> None:
+def save_to_s3(filename: str, data: list[dict]) -> None:
     """Append trip data to file in S3.
 
     Args:
-        trips: The list of trips to save as a list of dictionaries.
+        filename: The filename to save.
+        data: The data to save as a list of dictionaries.
     """
 
     logger = get_run_logger()
-
-    filename = Variable.get("trips-report-filename")
 
     s3_secret_key = Secret.load("s3-secret-key").get()
 
@@ -257,7 +368,7 @@ def get_summary(data: list[dict]) -> str:
 
     df = pl.DataFrame(data)
 
-    group_cols = ["trip_name", "check_in", "check_out", "hotel_name", "room_name"]
+    group_cols = ["trip_name", "check_in", "check_out", "hotel_name", "room_type"]
 
     lowest = df.sort("total").group_by(group_cols).head(1)
     highest = df.sort("total", descending=True).group_by(group_cols).head(1)
@@ -277,18 +388,18 @@ The summary should have two sections per trip_name:
 2. Rate Changes
 - hotel_names for which either:
   a) the total cost has changed by +/-£100 relative to the most recent report_date prior to the current date e.g. yesterday to today has changed +/£100
-  b) it is the lowest cost for that trip_name/hotel_name combination and there are no previous rates for that trip_name/hotel_name/room_name i.e. it is the current lowest and the first time a rate exists for this trip_name/hotel_name/room_name
+  b) it is the lowest cost for that trip_name/hotel_name combination and there are no previous rates for that trip_name/hotel_name/room_type i.e. it is the current lowest and the first time a rate exists for this trip_name/hotel_name/room_type
  
 for rate changes:
-- only include a trip_name/hotel_name/room_name if it has a rate for report_date matching current date
-- only include a trip_name/hotel_name/room_name if the total cost has changed by +/-£100
-- only use one room_name per trip_name/hotel_name combination for comparison, selecting the room_name per trip_name/hotel_name combination with the lowest total cost
-- only compare rates for a given trip_name/hotel_name/room_name with the same trip_name/hotel_name/room_name i.e. do not compare the cost of a Sea View room_name today with a Garden View room_name from yesterday
-- if a trip_name/hotel_name/room_name only has rates for report_date matching current_date, and no rates for other report_datee, that qualifies as a +/-£100 move, and should be the room_name used in the summary if it is the cheapest rate for that trip_name/hotel_name
+- only include a trip_name/hotel_name/room_type if it has a rate for report_date matching current date
+- only include a trip_name/hotel_name/room_type if the total cost has changed by +/-£100
+- only use one room_type per trip_name/hotel_name combination for comparison, selecting the room_type per trip_name/hotel_name combination with the lowest total cost
+- only compare rates for a given trip_name/hotel_name/room_type with the same trip_name/hotel_name/room_type i.e. do not compare the cost of a Sea View room_type today with a Garden View room_type from yesterday
+- if a trip_name/hotel_name/room_type only has rates for report_date matching current_date, and no rates for other report_datee, that qualifies as a +/-£100 move, and should be the room_type used in the summary if it is the cheapest rate for that trip_name/hotel_name
 - each included hotel_name should have:
-   - cost and name of the cheapest room_name in the format e.g. "Cheapest room ({{room_name}}) is £{{total}} (£{{per_night}} per night)"
-   - change from previous report for that trip_name/hotel_name/room_name combination e.g. "Price has increased/reduced by £740 (£74 per night) since the previous report on 17 May"
-   - current cost relative to lowest seen for that trip_name/hotel_name/room_name combination "Lowest price for this room was £2,980 on 8 April"
+   - cost and name of the cheapest room_type in the format e.g. "Cheapest room ({{room_type}}) is £{{total}} (£{{per_night}} per night)"
+   - change from previous report for that trip_name/hotel_name/room_type combination e.g. "Price has increased/reduced by £740 (£74 per night) since the previous report on 17 May"
+   - current cost relative to lowest seen for that trip_name/hotel_name/room_type combination "Lowest price for this room was £2,980 on 8 April"
  
 do:
     - if no trip_name/hotel_name have availability changes or rate changes, say so as per the second example below, do not add anything else
@@ -428,7 +539,7 @@ def build_pdf(trips: list[Trip]) -> bytes | None:
                 [
                     [
                         rate.hotel_name,
-                        rate.room_name,
+                        rate.room_type,
                         rate.per_night_formatted,
                         rate.total_formatted,
                     ]
@@ -532,7 +643,7 @@ def run_trips_report(recipients: tuple[str, ...]) -> None:
 
     csv_data = to_csv_format(trips)
 
-    save_to_s3(csv_data)
+    save_to_s3(Variable.get("trips-report-filename"), csv_data)
 
     summary = get_summary(csv_data)
 
@@ -542,7 +653,28 @@ def run_trips_report(recipients: tuple[str, ...]) -> None:
 
     send_report(summary, recipients, csv_bytes=csv_bytes, pdf_bytes=pdf_bytes)
 
+@flow
+def run_calendar_report() -> None:
+    """Get nightly hotel rates for every date within a range and save to S3."""
+
+    rate_calendars = get_rate_calendars()
+
+    futures = []
+    for room in rate_calendars:
+        for dates in room.rate_dates:
+            fut = get_hotel_rates.submit(
+                [room._requested_hotel], dates[0], dates[1]
+            )
+            futures.append((room, fut))
+
+    for room, fut in futures:
+        room.rates = fut.result()
+
+    csv_data = to_csv_format(rate_calendars)
+
+    save_to_s3(Variable.get("calendar-report-filename"), csv_data)
 
 if __name__ == "__main__":
-    recipients = ("axtellpete@gmail.com",)
-    run_trips_report(recipients)
+    # recipients = ("axtellpete@gmail.com",)
+    # run_trips_report(recipients)
+    run_calendar_report()
