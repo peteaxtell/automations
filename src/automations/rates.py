@@ -659,15 +659,15 @@ def run_calendar_report() -> None:
     rate_calendars = get_rate_calendars()
 
     futures = []
-    for room in rate_calendars:
-        for dates in room.rate_dates:
+    for hotel in rate_calendars:
+        for dates in hotel.rate_dates:
             fut = get_hotel_rates.submit(
-                [room._requested_hotel], dates[0], dates[1]
+                [hotel._requested_hotel], dates[0], dates[1]
             )
-            futures.append((room, fut))
+            futures.append((hotel, fut))
 
-    for room, fut in futures:
-        room.rates = fut.result()
+    for hotel, fut in futures:
+        hotel.rates.extend(fut.result())
 
     csv_data = to_csv_format(rate_calendars)
 
