@@ -180,8 +180,7 @@ class HotelsComClient(RapidApiClient):
         hotel: str,
         check_in: date,
         check_out: date,
-        adults: int = 2,
-        room_type: str | None = None
+        adults: int = 2
     ) -> List[HotelsComRate]:
         """Get hotel room rates for a given destination and date range.
 
@@ -264,7 +263,7 @@ class HotelsComClient(RapidApiClient):
                 total=total_cost,
                 per_night=total_cost / total_nights,
             )
-            for room, total_cost in room_rates.items() if not room_type or room == room_type
+            for room, total_cost in room_rates.items()
         ]
 
         room_rates_list.sort(key=lambda x: x.total)

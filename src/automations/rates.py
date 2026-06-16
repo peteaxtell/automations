@@ -121,18 +121,16 @@ class Trip:
 
 class RateCalendar:
     def __init__(
-        self, hotel_name: str, room_type: str, period_start: str, period_end: str, nights: int
+        self, hotel_name: str, period_start: str, period_end: str, nights: int
     ) -> None:
         """Initialize the RateCalendar model.
 
         Args:
             hotel_name: The name of the hotel.
-            room_type: The type of room to check rates for.
             period_start: The start date of the window to check rates for as a string in 'YYYY-MM-DD' format.
             period_end: The end date of the window to check rates for as a string in 'YYYY-MM-DD' format.
         """
         self.hotel_name = hotel_name
-        self.room_type = room_type
         self.period_start = self._parse_date(period_start)
         self.period_end = self._parse_date(period_end)
         self.nights = nights
@@ -169,7 +167,7 @@ class RateCalendar:
         return [
             {
                 "hotel_name": self.hotel_name,
-                "room_tyoe": self.room_type,
+                "room_tyoe": rate.room_type,
                 "check_in": rate.check_in,
                 "check_out": rate.check_out,
                 "total": rate.total,
@@ -245,7 +243,6 @@ def get_rate_calendars() -> list[RateCalendar]:
     rate_calendars = [
         RateCalendar(
             hotel_name=rc["hotel"],
-            room_type=rc["room_type"],
             period_start=rc["period_start"],
             period_end=rc["period_end"],
             nights=rc["nights"]
@@ -283,7 +280,7 @@ async def get_hotel_rates(
                 city=hotel.city,
                 hotel=hotel.name,
                 check_in=check_in,
-                check_out=check_out,
+                check_out=check_out
             )
             for hotel in hotels
         ]
@@ -293,7 +290,7 @@ async def get_hotel_rates(
 
 
 @task
-def to_csv_format(items: list[Trip | RateCalendar]) -> list[dict]:
+def to_csv_format(items: list[Trip] | list[RateCalendar]) -> list[dict]:
     """Convert the data to a format suitable for CSV output.
 
     Args:
@@ -307,6 +304,8 @@ def to_csv_format(items: list[Trip | RateCalendar]) -> list[dict]:
     report_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     for item in items:
+        if not item.rates:
+            continue
         item_data = item.to_csv_format()
         for csv_row in item_data:
             csv_row["report_date"] = report_date
@@ -640,7 +639,7 @@ def run_trips_report(recipients: tuple[str, ...]) -> None:
 
     for trip, fut in futures:
         trip.rates = fut.result()
-
+ 
     csv_data = to_csv_format(trips)
 
     save_to_s3(Variable.get("trips-report-filename"), csv_data)
