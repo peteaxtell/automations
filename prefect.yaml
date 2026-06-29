@@ -16,3 +16,10 @@ deployments:
       recipients: ["axtellpete@gmail.com", "axtellsabrina@gmail.com"]
     work_pool:
       name: managed-workpool
+  - name: hotel-calendar-report
+    entrypoint: automations.rates:run_calendar_report
+    schedules:
+        - cron: "0 9 * * *" 
+          timezone: "Europe/London"
+    work_pool:
+      name: managed-workpool 
