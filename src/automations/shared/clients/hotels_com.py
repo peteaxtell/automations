@@ -24,7 +24,9 @@ class HotelsComRate(BaseModel):
     """Hotel room rate information."""
 
     hotel_name: str
-    room_name: str
+    room_type: str
+    check_in: date
+    check_out: date
     total: float
     per_night: float
 
@@ -178,7 +180,7 @@ class HotelsComClient(RapidApiClient):
         hotel: str,
         check_in: date,
         check_out: date,
-        adults: int = 2,
+        adults: int = 2
     ) -> List[HotelsComRate]:
         """Get hotel room rates for a given destination and date range.
 
@@ -188,6 +190,7 @@ class HotelsComClient(RapidApiClient):
             check_in: The check-in date.
             check_out: The check-out date.
             adults: The number of adults for the booking (default is 2).
+            room_type: Optional room type to get prices for. If ommitted, returns all room types.
         Returns:
             A list of HotelsComRate objects containing room rate information.
         """
@@ -254,11 +257,13 @@ class HotelsComClient(RapidApiClient):
         room_rates_list: List[HotelsComRate] = [
             HotelsComRate(
                 hotel_name=hotel,
-                room_name=rn,
-                total=rt,
-                per_night=rt / total_nights,
+                room_type=room,
+                check_in=check_in,
+                check_out=check_out,
+                total=total_cost,
+                per_night=total_cost / total_nights,
             )
-            for rn, rt in room_rates.items()
+            for room, total_cost in room_rates.items()
         ]
 
         room_rates_list.sort(key=lambda x: x.total)
