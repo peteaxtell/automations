@@ -3,14 +3,14 @@ from prefect.blocks.system import Secret
 from pydantic import SecretStr
 
 from automations.config import S3Config
-from automations.flows.rns import process_investegate_email
+from automations.flows.rns import send_rns_summary
 from automations.shared.clients.google_api.gmail import GmailClient
 from automations.shared.clients.s3_client import S3Client
 from automations.shared.exceptions import S3FileNotFoundError
 
 MAIL_HANDLERS = {
-    "Pete Axtell <axtellpete@gmail.com>": process_investegate_email,
-    "Investegate <newsalert@mail.investegate.co.uk>": process_investegate_email,
+    "Pete Axtell <axtellpete@gmail.com>": send_rns_summary,
+    "Investegate <newsalert@mail.investegate.co.uk>": send_rns_summary,
 }
 
 
