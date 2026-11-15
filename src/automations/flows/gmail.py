@@ -32,7 +32,7 @@ def fetch_processed_config(s3_client: S3Client) -> dict:
         )
     except S3FileNotFoundError:
         logger.info(
-            "No existing data found in S3 for gmail_processed.json, new file will be created."
+            "No existing data found in S3 for gmail_processed.json, new file will be created"
         )
         processed_config = {"last_history_id": 11596414, "processed_message_ids": []}
 
@@ -79,7 +79,7 @@ def process_mailbox_alert(history_id: int) -> None:
         processed_message_ids=processed_config["processed_message_ids"],
     )
 
-    logger.info(f"Fetched {len(new_emails)} unprocessed emails from Gmail API.")
+    logger.info(f"Fetched {len(new_emails)} unprocessed emails")
 
     processed_ids = processed_config["processed_message_ids"]
 
@@ -94,7 +94,7 @@ def process_mailbox_alert(history_id: int) -> None:
 
         else:
             logger.info(
-                f"Processing email from {email['sender']} with subject: {email['subject']}"
+                f"Processing email {email['id']} from {email['sender']} with subject: {email['subject']}"
             )
             handler(email["body"])
 
@@ -107,8 +107,4 @@ def process_mailbox_alert(history_id: int) -> None:
         bucket=S3Config().bucket,
         data=processed_config,
         object_name="gmail_processed.json",
-    )
-
-    logger.info(
-        "Processed config updated in S3 with the latest history ID and processed message IDs."
     )
