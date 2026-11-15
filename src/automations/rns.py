@@ -22,7 +22,7 @@ def get_summary(url: str) -> str:
 
     logger = get_run_logger()
 
-    prompt = """Review this RNS and produce an HTML summary with a one paragraph summary of the announcement and second
+    prompt = f"""Review this RNS {url} and produce an HTML summary with a one paragraph summary of the announcement and second
     paragraph summarising whether it is likely to be positive, neutral or negative for the share price.
  """
 

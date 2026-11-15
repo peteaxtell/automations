@@ -1,7 +1,6 @@
-import json
-
 from prefect import flow, get_run_logger, task
-from pydantic import Secret, SecretStr
+from prefect.blocks.system import Secret
+from pydantic import SecretStr
 
 from automations.config import S3Config
 from automations.rns import process_investegate_email
@@ -10,8 +9,8 @@ from automations.shared.clients.s3_client import S3Client
 from automations.shared.exceptions import S3FileNotFoundError
 
 MAIL_HANDLERS = {
-    "axtellpete@gmail.com": process_investegate_email,
-    "newsalert@mail.investegate.co.uk": process_investegate_email,
+    "Pete Axtell <axtellpete@gmail.com>": process_investegate_email,
+    "Investegate <newsalert@mail.investegate.co.uk>": process_investegate_email,
 }
 
 
@@ -35,7 +34,7 @@ def get_processed_config(s3_client: S3Client) -> dict:
         logger.info(
             "No existing data found in S3 for gmail_processed.json, new file will be created."
         )
-        processed_config = {"last_history_id": 0, "processed_message_ids": []}
+        processed_config = {"last_history_id": 11596414, "processed_message_ids": []}
 
     return processed_config
 
@@ -53,7 +52,7 @@ def fetch_new_emails(
         A list of dictionaries containing the new email information.
     """
 
-    gmail_credentials = json.loads(Secret.load("gmail_credentials"))
+    gmail_credentials = Secret.load("gmail-api-credentials").get()
 
     client = GmailClient(
         client_id=gmail_credentials["client_id"],
@@ -71,12 +70,11 @@ def process_new_emails(history_id: int) -> None:
 
     logger = get_run_logger()
 
-    s3_client = S3Client(secret_key=Secret.load("s3_secret_key"))
+    s3_client = S3Client(secret_key=Secret.load("s3-secret-key").get())
 
     processed_config = get_processed_config(s3_client)
 
     new_emails = fetch_new_emails(
-        history_id=history_id,
         last_history_id=processed_config["last_history_id"],
         processed_message_ids=processed_config["processed_message_ids"],
     )
@@ -100,7 +98,7 @@ def process_new_emails(history_id: int) -> None:
             )
             handler(email["body"])
 
-        processed_ids.append(email["message_id"])
+        processed_ids.append(email["id"])
 
     processed_config["last_history_id"] = history_id
     processed_config["processed_message_ids"] = processed_ids

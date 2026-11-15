@@ -53,7 +53,7 @@ class GmailClient(GoogleClient):
             message_id: The ID of the email message to fetch.
             client: Optional Google API client instance. If not provided, a new client will be built.
         Returns:
-            A dictionary containing `sender`, `subject`, and `body`.
+            A dictionary containing `id`, `sender`, `subject`, and `body`.
         """
 
         if not client:
@@ -71,6 +71,7 @@ class GmailClient(GoogleClient):
                 }
 
                 return {
+                    "id": message["id"],
                     "sender": headers.get("from"),
                     "subject": headers.get("subject"),
                     "body": self._get_email_body(message["payload"]),
