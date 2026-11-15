@@ -3,7 +3,7 @@ from prefect.blocks.system import Secret
 from pydantic import SecretStr
 
 from automations.config import S3Config
-from automations.rns import process_investegate_email
+from automations.flows.rns import process_investegate_email
 from automations.shared.clients.google_api.gmail import GmailClient
 from automations.shared.clients.s3_client import S3Client
 from automations.shared.exceptions import S3FileNotFoundError
@@ -15,7 +15,7 @@ MAIL_HANDLERS = {
 
 
 @task
-def get_processed_config(s3_client: S3Client) -> dict:
+def fetch_processed_config(s3_client: S3Client) -> dict:
     """Retrieve the processed config from S3 or create a new one if it doesn't exist.
 
     Args:
@@ -64,15 +64,15 @@ def fetch_new_emails(
     )
 
 
-@flow
-def process_new_emails(history_id: int) -> None:
-    """Process new emails and update the processed config in S3."""
+@flow(name="process-gmail-mailbox-alert")
+def process_mailbox_alert(history_id: int) -> None:
+    """Retrieve emails added since previous alert was processed and process based on sender."""
 
     logger = get_run_logger()
 
     s3_client = S3Client(secret_key=Secret.load("s3-secret-key").get())
 
-    processed_config = get_processed_config(s3_client)
+    processed_config = fetch_processed_config(s3_client)
 
     new_emails = fetch_new_emails(
         last_history_id=processed_config["last_history_id"],

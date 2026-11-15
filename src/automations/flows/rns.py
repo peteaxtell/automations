@@ -46,8 +46,8 @@ def get_summary(url: str) -> str:
 
 
 @flow
-def process_investegate_email(email_content: str) -> None:
-    """Get OpenAI summary of RNS announcement from an Investegate email.
+def send_rns_summary(email_content: str) -> None:
+    """Send an email with OpenAI summary of RNS announcement.
 
     Args:
         email_content: The email content.

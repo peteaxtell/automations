@@ -8,22 +8,22 @@ pull:
 
 deployments:
   - name: hotel-rates-report
-    entrypoint: automations.rates:run_trips_report
+    entrypoint: automations.flows.hotels:run_trips_report
     schedules:
         - cron: "0 9 * * *"
           timezone: "Europe/London"
     parameters:
-      recipients: ["axtellpete@gmail.com", "axtellsabrina@gmail.com"]
+      recipients: ["axtellpete@gmail.com"]
     work_pool:
       name: managed-workpool
   - name: hotel-calendar-report
-    entrypoint: automations.rates:run_calendar_report
+    entrypoint: automations.flows.hotels:run_calendar_report
     schedules:
         - cron: "0 9 * * *" 
           timezone: "Europe/London"
     work_pool:
       name: managed-workpool 
   - name: process-mail
-    entrypoint: automations.process_mail:run
+    entrypoint: automations.flows.gmail:process_new_emails
     work_pool:
       name: managed-workpool
