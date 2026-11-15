@@ -23,3 +23,7 @@ deployments:
           timezone: "Europe/London"
     work_pool:
       name: managed-workpool 
+  - name: process-mail
+    entrypoint: automations.process_mail:run
+    work_pool:
+      name: managed-workpool
