@@ -5,8 +5,6 @@ from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 from prefect.variables import Variable
 
-from automations.shared.mail import send_mail
-
 RECIPIENTS = ["axtellpete@gmail.com"]
 
 
@@ -22,13 +20,15 @@ def get_summary(url: str) -> str:
 
     logger = get_run_logger()
 
-    prompt = f"""Review this RNS {url} and produce an emailable HTML summary with the following format:
+    prompt = f"""Review this RNS {url} and produce an emailable HTML summary with the below format. Do not wrap the output in code formatting.
+    <html>
     <p>
-    {{Company Name - RNS Title}}
+    <b>{{Company Name - RNS Title}}</b></br>
     {{url}}
     </p>
     <p>{{summary of the announcement}}</p>
     <p>{{likely share price impact summary}}</p>
+    </html>
  """
 
     model = Variable.get("openai-model")
@@ -67,4 +67,4 @@ def send_rns_summary(email_content: str) -> None:
 
     for url in urls:
         summary = get_summary(url)
-        send_mail(to=RECIPIENTS, subject="New RNS Announcement", body=summary)
+        # send_mail(to=RECIPIENTS, subject="New RNS Announcement", body=summary)
