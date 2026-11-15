@@ -24,6 +24,6 @@ deployments:
     work_pool:
       name: managed-workpool 
   - name: process-mail
-    entrypoint: automations.flows.gmail:process_new_emails
+    entrypoint: automations.flows.gmail:process_mailbox_alert
     work_pool:
       name: managed-workpool

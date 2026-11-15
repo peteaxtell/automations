@@ -119,6 +119,7 @@ class Trip:
             else:
                 logger.warning(f"Hotel with short name '{hotel_name}' not found.")
 
+
 class RateCalendar:
     def __init__(
         self, hotel_name: str, period_start: str, period_end: str, nights: int
@@ -136,7 +137,7 @@ class RateCalendar:
         self.nights = nights
         self.rates: list[HotelsComRate] = []
         self._resolve_hotel(hotel_name)
-    
+
     @property
     def rate_dates(self) -> list[tuple[date, date]]:
         """Return all the check-in and check-out dates to get rates for."""
@@ -155,7 +156,6 @@ class RateCalendar:
             check_in = check_in + timedelta(days=1)
 
         return dates
-
 
     def to_csv_format(self) -> list[dict]:
         """Convert the trip data to a dictionary format suitable for CSV output.
@@ -198,7 +198,7 @@ class RateCalendar:
         hotels = [Hotel(**h) for h in Variable.get("hotels")]
 
         hotel = next((h for h in hotels if h.short_name == hotel_name), None)
-        
+
         if hotel:
             self._requested_hotel = hotel
         else:
@@ -230,6 +230,7 @@ def get_trips() -> list[Trip]:
 
     return trips
 
+
 @task
 def get_rate_calendars() -> list[RateCalendar]:
     """Load and return the list of rate calendars from Prefect variables.
@@ -245,7 +246,7 @@ def get_rate_calendars() -> list[RateCalendar]:
             hotel_name=rc["hotel"],
             period_start=rc["period_start"],
             period_end=rc["period_end"],
-            nights=rc["nights"]
+            nights=rc["nights"],
         )
         for rc in Variable.get("rate-calendars")
     ]
@@ -280,7 +281,7 @@ async def get_hotel_rates(
                 city=hotel.city,
                 hotel=hotel.name,
                 check_in=check_in,
-                check_out=check_out
+                check_out=check_out,
             )
             for hotel in hotels
         ]
@@ -620,7 +621,7 @@ def send_report(
     )
 
 
-@flow
+@flow(name="run-trip-rates-report")
 def run_trips_report(recipients: tuple[str, ...]) -> None:
     """Get hotel rates, save to S3, and send email report.
 
@@ -639,7 +640,7 @@ def run_trips_report(recipients: tuple[str, ...]) -> None:
 
     for trip, fut in futures:
         trip.rates = fut.result()
- 
+
     csv_data = to_csv_format(trips)
 
     save_to_s3(Variable.get("trips-report-filename"), csv_data)
@@ -652,7 +653,8 @@ def run_trips_report(recipients: tuple[str, ...]) -> None:
 
     send_report(summary, recipients, csv_bytes=csv_bytes, pdf_bytes=pdf_bytes)
 
-@flow
+
+@flow(name="run-nightly-rates-calendar-report")
 def run_calendar_report() -> None:
     """Get nightly hotel rates for every date within a range and save to S3."""
 
@@ -661,9 +663,7 @@ def run_calendar_report() -> None:
     futures = []
     for hotel in rate_calendars:
         for dates in hotel.rate_dates:
-            fut = get_hotel_rates.submit(
-                [hotel._requested_hotel], dates[0], dates[1]
-            )
+            fut = get_hotel_rates.submit([hotel._requested_hotel], dates[0], dates[1])
             futures.append((hotel, fut))
 
     for hotel, fut in futures:
@@ -672,6 +672,7 @@ def run_calendar_report() -> None:
     csv_data = to_csv_format(rate_calendars)
 
     save_to_s3(Variable.get("calendar-report-filename"), csv_data)
+
 
 if __name__ == "__main__":
     # recipients = ("axtellpete@gmail.com",)
