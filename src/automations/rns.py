@@ -22,8 +22,13 @@ def get_summary(url: str) -> str:
 
     logger = get_run_logger()
 
-    prompt = f"""Review this RNS {url} and produce an HTML summary with a one paragraph summary of the announcement and second
-    paragraph summarising whether it is likely to be positive, neutral or negative for the share price.
+    prompt = f"""Review this RNS {url} and produce an emailable HTML summary with the following format:
+    <p>
+    {{Company Name - RNS Title}}
+    {{url}}
+    </p>
+    <p>{{summary of the announcement}}</p>
+    <p>{{likely share price impact summary}}</p>
  """
 
     model = Variable.get("openai-model")
