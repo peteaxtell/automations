@@ -23,7 +23,7 @@ deployments:
           timezone: "Europe/London"
     work_pool:
       name: managed-workpool 
-  - name: process-mail
+  - name: process-mailbox-alert
     entrypoint: automations.flows.gmail:process_mailbox_alert
     work_pool:
       name: managed-workpool
