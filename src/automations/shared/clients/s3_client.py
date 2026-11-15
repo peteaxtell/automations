@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from io import BytesIO, StringIO
 
 import boto3
@@ -88,6 +89,19 @@ class S3Client:
 
         return list(csv.DictReader(io.StringIO(content.decode("utf-8"))))
 
+    def download_json(self, bucket: str, object_name: str) -> dict:
+        """Download a JSON file from S3 and return as a dictionary.
+
+        Args:
+            bucket: The name of the S3 bucket.
+            object_name: The key of the object in the S3 bucket.
+        Returns:
+            The JSON content as a dictionary.
+        """
+        content = self._download_file(bucket, object_name)
+
+        return json.loads(content.decode("utf-8"))
+
     def upload_csv(self, bucket: str, data: list[dict], object_name: str) -> None:
         """Upload a list of dictionaries as a CSV file to S3.
 
@@ -104,3 +118,16 @@ class S3Client:
             self._upload_file(
                 bucket, BytesIO(file.getvalue().encode("utf-8")), object_name
             )
+
+    def upload_json(self, bucket: str, data: dict, object_name: str) -> None:
+        """Upload a dictionary as a JSON file to S3.
+
+        Args:
+            bucket: The name of the S3 bucket.
+            data: A dictionary to upload as JSON.
+            object_name: The key to use for the uploaded object in the S3 bucket.
+        """
+        with BytesIO() as file:
+            file.write(json.dumps(data).encode("utf-8"))
+            file.seek(0)
+            self._upload_file(bucket, file, object_name)

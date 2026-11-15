@@ -1,7 +1,116 @@
-from prefect import flow, get_run_logger
+import json
+
+from prefect import flow, get_run_logger, task
+from pydantic import Secret, SecretStr
+
+from automations.config import S3Config
+from automations.rns import process_investegate_email
+from automations.shared.clients.google_api.gmail import GmailClient
+from automations.shared.clients.s3_client import S3Client
+from automations.shared.exceptions import S3FileNotFoundError
+
+MAIL_HANDLERS = {
+    "axtellpete@gmail.com": process_investegate_email,
+    "newsalert@mail.investegate.co.uk": process_investegate_email,
+}
 
 
-@flow(name="process-mail", description="Process incoming mail")
-def run(history_id: int):
+@task
+def get_processed_config(s3_client: S3Client) -> dict:
+    """Retrieve the processed config from S3 or create a new one if it doesn't exist.
+
+    Args:
+        s3_client: An instance of S3Client.
+    Returns:
+        A dictionary containing `last_history_id` and `processed_message_ids`.
+    """
+
     logger = get_run_logger()
-    logger.info(f"Running process mail with history ID: {history_id}")
+
+    try:
+        processed_config = s3_client.download_json(
+            bucket=S3Config().bucket, object_name="gmail_processed.json"
+        )
+    except S3FileNotFoundError:
+        logger.info(
+            "No existing data found in S3 for gmail_processed.json, new file will be created."
+        )
+        processed_config = {"last_history_id": 0, "processed_message_ids": []}
+
+    return processed_config
+
+
+def fetch_new_emails(
+    last_history_id: int,
+    processed_message_ids: list[str],
+) -> list[dict]:
+    """Fetch new emails from Gmail API based on history ID.
+
+    Args:
+        last_history_id: The last processed history ID.
+        processed_message_ids: A list of already processed message IDs.
+    Returns:
+        A list of dictionaries containing the new email information.
+    """
+
+    gmail_credentials = json.loads(Secret.load("gmail_credentials"))
+
+    client = GmailClient(
+        client_id=gmail_credentials["client_id"],
+        client_secret=SecretStr(gmail_credentials["client_secret"]),
+        refresh_token=SecretStr(gmail_credentials["refresh_token"]),
+    )
+    return client.fetch_received_email_history(
+        history_id=last_history_id, exclude_message_ids=processed_message_ids
+    )
+
+
+@flow
+def process_new_emails(history_id: int) -> None:
+    """Process new emails and update the processed config in S3."""
+
+    logger = get_run_logger()
+
+    s3_client = S3Client(secret_key=Secret.load("s3_secret_key"))
+
+    processed_config = get_processed_config(s3_client)
+
+    new_emails = fetch_new_emails(
+        history_id=history_id,
+        last_history_id=processed_config["last_history_id"],
+        processed_message_ids=processed_config["processed_message_ids"],
+    )
+
+    logger.info(f"Fetched {len(new_emails)} unprocessed emails from Gmail API.")
+
+    processed_ids = processed_config["processed_message_ids"]
+
+    for email in new_emails:
+        handler = MAIL_HANDLERS.get(email["sender"])
+
+        if not handler:
+            logger.info(
+                f"Skipping email from {email['sender']} as no processing logic is defined for this sender."
+            )
+            continue
+
+        else:
+            logger.info(
+                f"Processing email from {email['sender']} with subject: {email['subject']}"
+            )
+            handler(email["body"])
+
+        processed_ids.append(email["message_id"])
+
+    processed_config["last_history_id"] = history_id
+    processed_config["processed_message_ids"] = processed_ids
+
+    s3_client.upload_json(
+        bucket=S3Config().bucket,
+        data=processed_config,
+        object_name="gmail_processed.json",
+    )
+
+    logger.info(
+        "Processed config updated in S3 with the latest history ID and processed message IDs."
+    )
