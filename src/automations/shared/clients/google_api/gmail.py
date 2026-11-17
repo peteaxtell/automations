@@ -35,7 +35,7 @@ class GmailClient(GoogleClient):
         mime = message.get("mimeType", "")
         data = message.get("body", {}).get("data")
 
-        if mime == "text/plain" and data:
+        if mime in ["text/plain", "text/html"] and data:
             decoded = base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
             return decoded.decode("utf-8", errors="replace")
 

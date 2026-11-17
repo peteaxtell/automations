@@ -1,0 +1,37 @@
+# ruff.toml
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort (import sorting)
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+    "N",    # pep8-naming
+    "RUF",  # ruff-specific rules
+    "PTH",  # prefer pathlib
+    "S",    # flake8-bandit (security)
+    "T20",  # no stray print()
+    "DTZ",  # naive datetime usage
+]
+ignore = [
+    "E501",  # line length is handled by the formatter
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"]  # allow assert in tests
+
+[lint.isort]
+known-first-party = ["axt_ig_trade"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
