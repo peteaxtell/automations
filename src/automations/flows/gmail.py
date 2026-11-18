@@ -1,10 +1,10 @@
+from axt_google_api import GmailClient
 from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 from pydantic import SecretStr
 
 from automations.config import S3Config
 from automations.flows.rns import send_rns_summary
-from automations.shared.clients.google_api.gmail import GmailClient
 from automations.shared.clients.s3_client import S3Client
 from automations.shared.exceptions import S3FileNotFoundError
 
@@ -108,3 +108,7 @@ def process_mailbox_alert(history_id: int) -> None:
         data=processed_config,
         object_name="gmail_processed.json",
     )
+
+
+if __name__ == "__main__":
+    process_mailbox_alert(11600360)
