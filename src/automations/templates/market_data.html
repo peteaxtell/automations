@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Market Briefing</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 12px 6px;
+            background-color: #f3f5f7;
+            color: #263445;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        p,
+        h1,
+        h2 {
+            margin: 0;
+        }
+
+        .briefing {
+            width: 100%;
+            max-width: 640px;
+            background-color: #ffffff;
+            border: 1px solid #dfe5eb;
+        }
+
+        .banner {
+            padding: 16px 20px 14px;
+            background-color: #142c46;
+            border-top: 4px solid #35a7a0;
+            text-align: center;
+        }
+
+        .banner-label {
+            margin-bottom: 5px;
+            color: #9edbd6;
+            font-size: 11px;
+            line-height: 16px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .banner-title {
+            color: #ffffff;
+            font-size: 23px;
+            line-height: 31px;
+            font-weight: bold;
+        }
+
+        .banner-subtitle {
+            margin-top: 4px;
+            color: #ffffff;
+            font-size: 11px;
+            line-height: 18px;
+        }
+
+        .timezone,
+        .footer {
+            color: #697586;
+            font-size: 9px;
+            line-height: 13px;
+        }
+
+        .timezone {
+            padding: 6px 10px 0;
+            text-align: right;
+        }
+
+        .market-wrapper {
+            padding: 6px 6px 0;
+        }
+
+        .market-card {
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid #dfe5eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .market-name {
+            padding: 8px 5px;
+            background-color: #f1f4f7;
+            border-right: 1px solid #dfe5eb;
+            border-radius: 5px 0 0 5px;
+            vertical-align: middle;
+        }
+
+        .market-title {
+            color: #142c46;
+            font-size: 12px;
+            line-height: 17px;
+            overflow-wrap: break-word;
+        }
+
+        .market-content {
+            padding: 4px;
+        }
+
+        .sessions {
+            table-layout: fixed;
+        }
+
+        .column-heading {
+            padding: 0 3px 3px;
+            color: #475467;
+            font-size: 9px;
+            line-height: 12px;
+            font-weight: bold;
+        }
+
+        .session-heading {
+            padding-right: 2px;
+            padding-left: 2px;
+        }
+
+        .session-gap {
+            height: 6px;
+            font-size: 0;
+            line-height: 6px;
+        }
+
+        .session-name {
+            padding: 5px 2px;
+            color: #475467;
+            font-size: 9px;
+            line-height: 13px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .return-cell,
+        .rtv-content {
+            padding: 5px 3px;
+        }
+
+        .return-cell,
+        .rtv-cell {
+            vertical-align: top;
+        }
+
+        .metric-value {
+            color: #142c46;
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .timestamp {
+            margin-top: 1px;
+            color: #697586;
+            font-size: 8px;
+            line-height: 11px;
+            font-weight: normal;
+        }
+
+        .rtv-cell {
+            padding: 0 0 0 3px;
+        }
+
+        .rtv-tile {
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 4px;
+        }
+
+        .metric-positive {
+            color: #217346;
+        }
+
+        .metric-negative {
+            color: #b42318;
+        }
+
+        .rtv-positive {
+            background-color: #edf7f0;
+        }
+
+        .rtv-negative {
+            background-color: #fdf1f1;
+        }
+
+        .footer {
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    {% macro percentage(value) -%}
+    {% if value is not none and value == value %}{{ '%+.2f' | format(value) }}%{% else %}N/A{% endif %}
+    {%- endmacro %}
+    {% macro direction(value) -%}
+    {% if value is not none and value == value %}{% if value > 0 %}positive{% elif value < 0 %}negative{% endif %}{%
+        endif %} {%- endmacro %} {% macro as_of(value) -%} {% if value is not none %} {%- set timestamp=value | string
+        -%} {%- set parts=timestamp.split() -%} {%- if parts | length>= 4 and parts[1].isdigit() and parts[2] in
+        ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] -%}
+        {{ parts[1] | int }} {{ parts[2] }} {{ parts[3] }}
+        {%- else -%}
+        {%- set timestamp = timestamp.replace('/', '-').replace('T', ' ') -%}
+        {%- set months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] -%}
+        {{ timestamp[8:10] | int }} {{ months[(timestamp[5:7] | int) - 1] }} {{ timestamp[11:16] }}
+        {%- endif -%}
+        {% else %}Unavailable{% endif %}
+        {%- endmacro %}
+        <table class="briefing" role="presentation" cellpadding="0" cellspacing="0" border="0" width="640"
+            align="left">
+            <tr>
+                <td class="banner" align="center">
+                    <p class="banner-label">Market Briefing</p>
+                    <h1 class="banner-title">Morning Summary</h1>
+                    <p class="banner-subtitle">Estimated returns based on CFD prices from IG Trade
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td class="timezone" align="right">All times UTC</td>
+            </tr>
+            {% for market, exchanges in rows | groupby('market') %}
+            <tr>
+                <td class="market-wrapper">
+                    <table class="market-card" role="presentation" cellpadding="0" cellspacing="0" border="0"
+                        width="100%">
+                        <tr>
+                            <td class="market-name" width="22%" valign="middle">
+                                <h2 class="market-title">{{ market }}</h2>
+                            </td>
+                            <td class="market-content">
+                                <table class="sessions" role="presentation" cellpadding="0" cellspacing="0" border="0"
+                                    width="100%">
+                                    <tr>
+                                        <td class="column-heading session-heading" width="22%">Session</td>
+                                        <td class="column-heading" width="39%">Return</td>
+                                        <td class="column-heading" width="39%">Est. RTV</td>
+                                    </tr>
+                                    {% set lse_rows = exchanges | selectattr('exchange', 'equalto', 'LSE') | list %}
+                                    {% set has_lse = lse_rows | length > 0 %}
+                                    {% set lse_close = lse_rows[0].previous_session_time_utc if has_lse else none %}
+                                    {% for row in exchanges if row.exchange == 'LSE' or lse_close is none or
+                                    row.previous_session_time_utc is none or row.previous_session_time_utc != lse_close
+                                    %}
+                                    {% set move = row.return_since_previous_close_pct %}
+                                    {% set return_direction = direction(row.previous_session_return_pct) | trim %}
+                                    {% set move_direction = direction(move) | trim %}
+                                    {% if not loop.first %}
+                                    <tr aria-hidden="true">
+                                        <td class="session-gap" colspan="3" height="6">&nbsp;</td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <td class="session-name" valign="middle">{{ row.exchange }}</td>
+                                        <td class="return-cell" valign="top">
+                                            <p
+                                                class="metric-value{% if return_direction %} metric-{{ return_direction }}{% endif %}">
+                                                {{ percentage(row.previous_session_return_pct) }}</p>
+                                            <p class="timestamp" title="{{ row.previous_session_time_utc }} UTC">{{
+                                                as_of(row.previous_session_time_utc) }}</p>
+                                        </td>
+                                        <td class="rtv-cell" valign="top">
+                                            <table
+                                                class="rtv-tile{% if row.exchange == 'LSE' and move_direction %} rtv-{{ move_direction }}{% endif %}"
+                                                role="presentation" cellpadding="0" cellspacing="0" border="0"
+                                                width="100%">
+                                                <tr>
+                                                    <td class="rtv-content">
+                                                        <p
+                                                            class="metric-value{% if move_direction %} metric-{{ move_direction }}{% endif %}">
+                                                            {{ percentage(move) }}</p>
+                                                        <p class="timestamp"
+                                                            title="{{ row.latest_price_time_utc }} UTC">{{
+                                                            as_of(row.latest_price_time_utc) }}</p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+</body>
+
+</html>

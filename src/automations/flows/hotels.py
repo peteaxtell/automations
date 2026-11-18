@@ -675,6 +675,6 @@ def run_calendar_report() -> None:
 
 
 if __name__ == "__main__":
-    # recipients = ("axtellpete@gmail.com",)
-    # run_trips_report(recipients)
-    run_calendar_report()
+    recipients = ("axtellpete@gmail.com",)
+    run_trips_report(recipients)
+    # run_calendar_report()

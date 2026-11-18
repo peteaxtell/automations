@@ -27,3 +27,12 @@ deployments:
     entrypoint: automations.flows.gmail:process_mailbox_alert
     work_pool:
       name: managed-workpool
+  - name: send-market-summary
+    entrypoint: automations.flows.market_summary.send_market_summary
+    work_pool:
+      name: managed-workpool
+    schedules:
+        - cron: "30 4 * * 1-5" 
+          timezone: "Europe/London"
+        - cron: "45 7 * * 1-5" 
+          timezone: "Europe/London"
