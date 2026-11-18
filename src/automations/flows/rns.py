@@ -46,7 +46,7 @@ Return valid JSON only, with no Markdown fences or additional text. Make sure yo
     response = client.responses.create(
         model=model,
         input=prompt,
-        text={"format": {"type": "json_object"}},
+        tools=[{"type": "web_search"}],
     )
 
     return response.output_text
