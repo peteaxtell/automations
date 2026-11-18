@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RNS Alert</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 12px 6px;
+            background-color: #f3f5f7;
+            color: #263445;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+        }
+
+        p,
+        h1,
+        h2 {
+            margin: 0;
+        }
+
+        .briefing {
+            width: 100%;
+            max-width: 640px;
+            background-color: #ffffff;
+            border: 1px solid #dfe5eb;
+        }
+
+        .banner {
+            padding: 16px 20px 14px;
+            background-color: #142c46;
+            border-top: 4px solid #35a7a0;
+            text-align: center;
+        }
+
+        .banner-label {
+            margin-bottom: 5px;
+            color: #9edbd6;
+            font-size: 11px;
+            line-height: 16px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .banner-title {
+            color: #ffffff;
+            font-size: 23px;
+            line-height: 31px;
+            font-weight: bold;
+        }
+
+        .banner-subtitle {
+            margin-top: 4px;
+            color: #ffffff;
+            font-size: 11px;
+            line-height: 18px;
+        }
+
+        .content-wrapper {
+            padding: 6px 6px 0;
+        }
+
+        .content-wrapper-last {
+            padding-bottom: 6px;
+        }
+
+        .content-card {
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid #dfe5eb;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .content-heading {
+            padding: 8px 10px;
+            background-color: #f1f4f7;
+            color: #142c46;
+            font-size: 12px;
+            line-height: 17px;
+            font-weight: bold;
+        }
+
+        .content-body {
+            padding: 10px;
+            color: #263445;
+            font-size: 11px;
+            line-height: 17px;
+        }
+
+        .content-body ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .content-body p {
+            margin: 0 0 6px;
+        }
+
+        .content-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .sentiment {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 5px 10px;
+            border: 1px solid #ffffff;
+            border-radius: 999px;
+            font-size: 11px;
+            line-height: 16px;
+            font-weight: bold;
+            vertical-align: 1px;
+        }
+
+        .sentiment-positive {
+            background-color: #edf7f0;
+            border-color: #f7fbf8;
+            color: #217346;
+        }
+
+        .sentiment-mildly-positive {
+            background-color: #f2f8f3;
+            border-color: #f9fcfa;
+            color: #3a7651;
+        }
+
+        .sentiment-neutral {
+            background-color: #f1f4f7;
+            border-color: #f8f9fb;
+            color: #475467;
+        }
+
+        .sentiment-mildly-negative {
+            background-color: #fff6ed;
+            border-color: #fffbf6;
+            color: #b54708;
+        }
+
+        .sentiment-negative {
+            background-color: #fdf1f1;
+            border-color: #fff9f9;
+            color: #b42318;
+        }
+    </style>
+</head>
+
+<body>
+    {% set sentiment_class = {
+        'positive': 'sentiment-positive',
+        'mildly_positive': 'sentiment-mildly-positive',
+        'neutral': 'sentiment-neutral',
+        'mildly_negative': 'sentiment-mildly-negative',
+        'negative': 'sentiment-negative'
+    }.get(rows.sentiment, 'sentiment-neutral') %}
+    <table class="briefing" role="presentation" cellpadding="0" cellspacing="0" border="0" width="640"
+        align="left">
+        <tr>
+            <td class="banner" align="center">
+                <p class="banner-label">RNS Alert</p>
+                <h1 class="banner-title">{{ rows.company_name }}</h1>
+                <p class="banner-subtitle">{{ rows.rns_title }}</p>
+            </td>
+        </tr>
+        <tr>
+            <td class="content-wrapper">
+                <table class="content-card" role="presentation" cellpadding="0" cellspacing="0" border="0"
+                    width="100%">
+                    <tr>
+                        <td class="content-heading">
+                            Likely Market Impact
+                            <span class="sentiment {{ sentiment_class }}">
+                                {{ rows.sentiment | replace('_', ' ') | title }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="content-body">{{ rows.impact | safe }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td class="content-wrapper content-wrapper-last">
+                <table class="content-card" role="presentation" cellpadding="0" cellspacing="0" border="0"
+                    width="100%">
+                    <tr>
+                        <td class="content-heading">Announcement Summary</td>
+                    </tr>
+                    <tr>
+                        <td class="content-body">{{ rows.summary | safe }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

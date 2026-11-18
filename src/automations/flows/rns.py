@@ -1,11 +1,16 @@
+import json
 import re
+from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from openai import OpenAI
 from prefect import flow, get_run_logger, task
 from prefect.blocks.system import Secret
 from prefect.variables import Variable
 
-RECIPIENTS = ["axtellpete@gmail.com"]
+from automations.shared.mail import send_mail
+
+RECIPIENTS = ("axtellpete@gmail.com",)
 
 
 @task
@@ -20,30 +25,14 @@ def get_summary(url: str) -> str:
 
     logger = get_run_logger()
 
-    prompt = f"""Review {url} and provide a response exactly in the below format.
+    prompt = f"""Review {url} and return one JSON object with exactly these five string properties:
+- "company_name": The company name.
+- "rns_title": The announcement title.
+- "sentiment": How the news will be perceived by investors. One of: positive, mildly_positive, neutral, mildly_negative, negative.
+- "summary": A concise factual summary of the announcement, formatted as email-friendly HTML with no more than three bullet points.
+- "impact": The likely share-price impact, including direction, reasoning, and key uncertainties. Do not use or refer to the observed share-price reaction. Format as email-friendly HTML with no more than three bullet points.
 
-{{company_name}}
-Company Name
-{{/company_name}}
-{{rns_title}}
-Company Name
-{{/rns_title}}
-{{sentiment}}
-How the news will be perceived by investors. One of: {{positive, mildly_positive, neutral, mildly_negative, negative}}.
-{{/sentiment}}
-{{summary}}
-A concise factual summary of the announcement.
-{{/summary}}
-{{impact}}
-The likely share-price impact, with the direction, reasoning and key uncertainties. Do not use or refer to the observed share-price reaction.
-{{/impact}}
-
-The summary and impact should be formatted in an email friendly way using HTML.
-The summary and impact should be concise, maximum three bullet points per section.
-The sentiment should one of the suggested responses only. No other additional text.
-Output as raw code.
-Do not include any text outside the three sections.
- """
+Return valid JSON only, with no Markdown fences or additional text. Make sure you use that URL exactly, the announcement ID is important."""
 
     model = Variable.get("openai-model")
     api_key = Secret.load("openai-api-key").get()
@@ -54,9 +43,55 @@ Do not include any text outside the three sections.
         f"Sending prompt to OpenAI for summary of Investegate announcement {url}"
     )
 
-    response = client.responses.create(model=model, input=prompt)
+    response = client.responses.create(
+        model=model,
+        input=prompt,
+        text={"format": {"type": "json_object"}},
+    )
 
     return response.output_text
+
+
+def parse_response(response: str) -> dict[str, str]:
+    """Parse and validate the JSON summary returned by OpenAI."""
+    values = json.loads(response)
+    if not isinstance(values, dict):
+        raise ValueError("OpenAI response must be a JSON object")
+
+    fields = ("company_name", "rns_title", "sentiment", "summary", "impact")
+    if set(values) != set(fields):
+        raise ValueError("OpenAI response must contain exactly the expected fields")
+
+    parsed: dict[str, str] = {}
+    for field in fields:
+        value = values[field]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(
+                f"OpenAI response field must be a non-empty string: {field}"
+            )
+        parsed[field] = value.strip()
+
+    return parsed
+
+
+def send(subject: str, template_values: dict) -> None:
+    """Send an email with the market summary.
+
+    Args:
+        subject: Email subject
+        template_values: A dictionary containing `company_name`, `rns_title`, `sentiment`, `summary` and `impact`.
+    """
+
+    environment = Environment(
+        loader=FileSystemLoader(Path(__file__).parents[1] / "templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+
+    send_mail(
+        to=RECIPIENTS,
+        subject=subject,
+        body=environment.get_template("rns.html").render(rows=template_values),
+    )
 
 
 @flow
@@ -80,6 +115,18 @@ def send_rns_summary(subject: str, email_content: str) -> None:
         logger.info("No Investegate announcement URL found in the email content.")
         return
 
-    for url in urls:
-        summary = get_summary(url)
-        # send_mail(to=RECIPIENTS, subject=subject, body=summary)
+    if len(urls) > 1:
+        logger.warning(
+            "Found multiple URLs matching RNS pattern. Processing the first only."
+        )
+
+    summary = get_summary(urls[0])
+    template_values = parse_response(summary)
+    send(subject, template_values)
+
+
+if __name__ == "__main__":
+    send_rns_summary(
+        "Testing RNS flow",
+        "https://www.investegate.co.uk/announcement/9875716",
+    )
